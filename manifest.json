@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "ojumpy",
+  "name": "Ojumpy",
+  "version": "0.1.0",
+  "author": "h1st0ry3D",
+  "description": "Omarchy-first 2D Coop Platformer",
+  "kinds": [
+    "bar-widget",
+    "panel"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml",
+    "panel": "Panel.qml"
+  }
+}

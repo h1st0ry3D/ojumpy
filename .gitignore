@@ -1,0 +1,9 @@
+# python is ever run without -B
+__pycache__/
+*.pyc
+
+# local debug captures from the pad bridge (--log PATH)
+*.padlog
+
+# VSCode settings
+.vscode/
