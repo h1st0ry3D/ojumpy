@@ -92,13 +92,15 @@ full deflection. Pushing P2's controls mid-round splits the screen.
 |---|---|
 | **A** | jump (P1; also the picker's confirm) |
 | **B**, **X** | jump for P2 (on a single pad) |
-| **Start** | pause / resume |
+| **Start** | start a round from the ready screen, pause / resume while one runs |
 | **Select**, **Mode** | open or close the mode picker |
 | **R3** (click the right stick) | fullscreen, like `F` |
 | D-pad ↑/↓, either stick | move the picker's highlight; **A** picks |
 
-Starting a round is the picker's job on a pad: `Select`, then `A` — picking the mode
-that is already playing starts a fresh round rather than doing nothing. There is no
+`Start` is context-sensitive, exactly like the keyboard's `Enter`: on the ready screen
+it starts a round, while a round runs it jumps (as P2) and pauses. `Select` → `A` also
+starts one — picking the mode that is already playing starts a fresh round rather than
+doing nothing. After a *win*, only `R` and that picker route begin a rematch. There is no
 rumble, and the button map is fixed: see the end of this file.
 
 Everything else (jump, double jump, glide, shoves, the goal of each mode) is the

@@ -149,7 +149,7 @@ Rectangle {
                 }
                 Text {
                     textFormat: Text.PlainText
-                    text: "R  ·  pad Select, A"
+                    text: "R or Enter  ·  pad Start"
                     color: Util.alpha(Color.foreground, 0.9)
                     font.family: "monospace"
                     font.pixelSize: 10 * board.overlayScale

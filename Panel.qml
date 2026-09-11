@@ -118,8 +118,8 @@ Panel {
                        ? "keys ←/→ + ↑ or Enter   ·   pad 2 stick + A/B/X   ·   own camera"
                        : "not in the round — J, or a pad's P2 buttons, joins" },
         { k: "Moves", v: "double jump: tap jump again mid-air   ·   hold jump while falling to glide (Ô)" },
-        { k: "Keys", v: "R start   ·   P pause   ·   S stop   ·   M modes   ·   F fullscreen   ·   Esc close"
-                       + "   ·   pad: Start pause, Select modes" }
+        { k: "Keys", v: "R (or Enter) start   ·   P pause   ·   S stop   ·   M modes   ·   F fullscreen   ·   Esc close"
+                       + "   ·   pad: Start start/pause, Select modes, R3 fullscreen" }
     ]
 
     // ---- ui state ----
@@ -343,16 +343,19 @@ Panel {
         id: tick
         interval: 16; running: true; repeat: true
         onTriggered: {
-            // Pad buttons: Start pauses, Select (or Mode) opens the mode picker,
-            // R3 toggles fullscreen — all on rising edges. Start no longer starts
-            // a round — a pad-only player starts one with Select then A, which
-            // starts the round even when the mode picked is the one already
-            // playing (see ModeSelect). Fullscreen is the same view-only toggle
-            // as F, so it is ignored while the panel is shut (nothing is drawn to
-            // go fullscreen, and the flag is cleared on the next close anyway).
+            // Pad buttons: Start is context-sensitive like the pause key — it
+            // pauses a live round and starts one from the ready screen; Select (or
+            // Mode) opens the mode picker; R3 toggles fullscreen. All rising edges.
+            // A *finished* round is left to R (and to the pad's Select → A): at the
+            // win, Start/A is what the players are mashing. Fullscreen is the same
+            // view-only toggle as F, so it is ignored while the panel is shut
+            // (nothing is drawn to go fullscreen; the flag is cleared on close too).
             var pPause = !!root.pad.pause, pMenu = !!root.pad.menu;
             var pFs = !!root.pad.fullscreen;
-            if (pPause && !root.padPauseWas) game.togglePause();
+            if (pPause && !root.padPauseWas) {
+                if (game.roundActive) game.togglePause();
+                else if (!root.modesOpen && game.winner === "") game.startRound();
+            }
             if (pMenu && !root.padMenuWas) root.modesOpen = !root.modesOpen;
             if (pFs && !root.padFsWas && root.opened) root.toggleFullscreen();
             root.padPauseWas = pPause; root.padMenuWas = pMenu; root.padFsWas = pFs;
@@ -427,8 +430,12 @@ Panel {
     // glyphs ("ö_Ö"). BarButton.qml sizes the icon slot from it and owns the
     // tooltip; here we only keep the label and wire the two clicks.
     // Progress in the bar: the climb in the racing modes, player 1's score in the
-    // collect modes (Glyph Hunt), and the idle glyphs otherwise.
-    readonly property string barLabel: (game.roundActive && !game.paused)
+    // collect modes (Glyph Hunt), and the idle glyphs otherwise. A *paused* round
+    // keeps its progress on purpose: the label is what sizes the bar icon's slot
+    // (BarButton measures it) and the panel is anchored to that button, so
+    // switching to "ö_Ö" would shrink the slot and shift the panel sideways the
+    // moment someone paused. The paused state lives in the tooltip instead.
+    readonly property string barLabel: game.roundActive
         ? (game.scoreTarget > 0 ? (game.p1Score + "_" + game.scoreTarget)
                                 : (game.p1Plat + "_" + (game.platforms.length - 1)))
         : "ö_Ö"

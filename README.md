@@ -24,7 +24,8 @@ no packages, no network: one shell plugin, three small stdlib-only helpers.
 ## Solo start & split screen
 
 The bar widget shows `ö_Ö` when nothing is running. Open the panel, press `R` to
-play solo (on a pad: `Select`, then `A` in the picker): one camera, one arena.
+play solo (`Enter` and pad `Start` do the same from the ready screen): one camera,
+one arena.
 
 `J` — or any fresh input from player 2's *pad* (right stick on a single pad, the
 second pad, `B`/`X`) — joins the second racer: the board splits into two panes, each
@@ -193,7 +194,10 @@ players, rocks, ghosts and the clock all hold, and resuming shifts the start sta
 so the paused stretch is never charged to the run. Closing the panel pauses a running round
 automatically (fullscreen does not — it reopens the panel to relayout), so a round
 you cannot see does not keep falling apart. Paused rounds show a `❚❚ paused` card
-over the frozen arena and drop the bar label back to `ö_Ö`.
+over the frozen arena. The bar keeps showing the frozen progress while paused —
+the label is what sizes the bar icon's slot and the panel is anchored to that
+button, so switching it back to `ö_Ö` would shift the whole panel sideways. The
+paused state is in the bar tooltip (`Ojumpy — Race to 100 · paused · keyboard`).
 
 **Course generation.** Levels are built in base units from the round seed, on a
 discrete grid of climb units (single +1, double +2, bridge ±0) so every hop is one
@@ -217,15 +221,21 @@ that can be picked. Picking a mode starts a fresh round.
 
 | | Move | Jump | Start |
 |---|---|---|---|
-| **P1** | `A`/`D` · pad 1 left stick / D-pad | `W` or `Space` · pad `A` | `R` · pad Select then `A` |
-| **P2** | `←`/`→` · pad 2 left stick / D-pad | `↑` or `Enter` (numpad too) · pad `A`/`B`/`X` | `R` on the keyboard |
+| **P1** | `A`/`D` · pad 1 left stick / D-pad | `W` or `Space` · pad `A` | `R` / `Enter` · pad `Start` |
+| **P2** | `←`/`→` · pad 2 left stick / D-pad | `↑` or `Enter` (numpad too) · pad `A`/`B`/`X` | `R` / `Enter` (from the ready screen) |
 
 Solo, when P2 has not joined, **both sets drive P1** — WASD + `Space` or arrows +
 `Enter`, whichever hand you prefer. `J` (or a fresh pad P2 input) splits them apart
 again: then `←`/`→`/`↑`/`Enter` belong to P2 alone.
 
 `J` join/leave P2 · `P` pause · `S` stop · `M` modes (`↑`/`↓` + `Enter` to pick) ·
-`F` fullscreen (pad `R3`) · `Esc` close · pad: `Start` pause, `Select` modes (`↑`/`↓` + `A`).
+`F` fullscreen (pad `R3`) · `Esc` close · pad: `Start` start/pause, `Select` modes
+(`↑`/`↓` + `A`).
+
+`Enter` and pad `Start` are context-sensitive: while a round runs they jump (P2, or
+P1 while solo) and pause; on the ready screen they start a round. After a *win* only
+`R` (and the pad's `Select` → `A`) starts a rematch — at the win, `Enter` and `A` are
+exactly the buttons everyone is mashing.
 
 Buttons carry the action only; every shortcut lives in the button's tooltip, and
 the full list is in the **Ojumpy Manual** accordion at the bottom of the panel

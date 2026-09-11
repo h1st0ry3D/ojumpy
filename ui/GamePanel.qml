@@ -120,9 +120,15 @@ KeyboardPanel {
             if (event.key === Qt.Key_J) {
                 game.toggleP2(); event.accepted = true; return;
             }
-            // Enter is player 2's jump now (solo: P1's as well), so nothing here
-            // starts a round — that is R, the panel's button, or, on a pad,
-            // Select then A in the picker.
+            // Enter is player 2's jump (solo: P1's as well) while a round is live,
+            // but from the ready screen it starts a round — nothing can be jumped
+            // there anyway. A *finished* round is deliberately not included: at the
+            // win, Enter is exactly the button the players are mashing, and R is
+            // the rematch key.
+            if ((event.key === Qt.Key_Enter || event.key === Qt.Key_Return)
+                && !panel.modesOpen && !game.roundActive && game.winner === "") {
+                game.startRound(); event.accepted = true; return;
+            }
             if (event.key === Qt.Key_S) {
                 game.stopGame(); panel.modesOpen = false; event.accepted = true; return;
             }
@@ -287,7 +293,8 @@ KeyboardPanel {
                 spacing: Style.space(8)
                 Button {
                     text: game.roundActive ? "Stop" : "Start"
-                    tooltipText: game.roundActive ? "Stop the round (S)" : "Start a round (R)"
+                    tooltipText: game.roundActive ? "Stop the round (S)"
+                                 : "Start a round (R / Enter / pad Start)"
                     fontSize: Style.font.body * panel.uiScale
                     onClicked: game.roundActive ? game.stopGame() : game.startRound()
                 }
@@ -321,8 +328,8 @@ KeyboardPanel {
                     // so the two actions now agree instead of competing.
                     text: game.paused ? "Resume" : "Pause"
                     tooltipText: game.paused
-                        ? "Resume the round (P)"
-                        : "Pause the round — rocks and the clock freeze (P)"
+                        ? "Resume the round (P / pad Start)"
+                        : "Pause the round — rocks and the clock freeze (P / pad Start)"
                     enabled: game.roundActive
                     fontSize: Style.font.body * panel.uiScale
                     onClicked: game.togglePause()
