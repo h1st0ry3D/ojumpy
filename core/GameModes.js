@@ -24,7 +24,7 @@ var RACE = {
     tagline: "First glyph to the summit orb wins — climb to 100 and jump into it",
     // what the pane tag shows as the goal marker in front of the progress
     // (the start pad's own character, so the tag reads as "the climb")
-    tagGlyph: "~",
+    tagGlyph: "",
     ready: true,
     tracksBest: true, // best clear time is kept per mode
     goalIndex: 100,
@@ -52,7 +52,7 @@ var ASTERISKS = {
     id: "asterisks",
     name: "Asterisk Attack",
     tagline: "Dodge the sliding * to 100, grab the bold O at 50, jump into the orb",
-    tagGlyph: "~",
+    tagGlyph: "",
     ready: true,
     tracksBest: true,
     goalIndex: 100,

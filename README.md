@@ -150,7 +150,7 @@ delegates the rules to each entry's hooks (`onLand`, `onFall`, `onTick`).
 | **Glyph Hunt** | catch 10 glyphs of your own colour | `$` | every drop is a matched pair, one per player in their own colour: catch yours for +1 and a bing, touch theirs and it hits like a shove and kills you. No summit orb |
 | *Fall Gauntlet* | scaffold, not playable yet | — | — |
 
-The pane HUD tag reads `P1 | ~ 3_100 | Ø 4` — owner, the mode's goal glyph in
+The pane HUD tag reads `P1: 3_100 | Ø 4` — owner, the mode's goal glyph in
 front of the progress (platform count, or the score in Glyph Hunt), and the death
 count once there is one.
 

@@ -645,7 +645,7 @@ Item {
             id: tag
             anchors.centerIn: parent
             // Who this pane belongs to, what the mode's goal looks like, and how
-            // far along that player is: `P1 | ~ 3_100 | Ø 4`. The middle segment
+            // far along that player is: `P1: 3_100 | Ø 4`. The middle segment
             // is the mode's own tag glyph (`~`, the start pad's character, in the
             // racing modes; the biggest collectible in Glyph Hunt) followed by either the
             // platform count in the bar label's `N_target` form or, in the collect
@@ -659,7 +659,7 @@ Item {
                    + "_" + view.engine.scoreTarget)
                 : (view.selfPlat + "_" + (view.engine.platCount - 1))
             text: (view.isSelf ? "P1" : "P2")
-                  + " | " + tagGoal + tagProgress
+                  + ": " + tagGoal + tagProgress
                   + (view.selfFalls > 0
                      ? " | " + view.deathGlyph + " " + view.selfFalls : "")
             color: view.selfColor
