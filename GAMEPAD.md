@@ -86,8 +86,12 @@ the same player.
 Movement is not analog: a stick past ~35 % counts as a direction, a D-pad press as
 full deflection. `Start` starts a round; it does not restart a running one (use the
 `Restart` button or `R`). Pushing P2's controls mid-round splits the screen. Pause
-has no pad binding — it is `P` or the panel button. There is no rumble, and the
-button map is fixed: see the end of this file.
+has no pad binding — it is `P` or the panel button.
+
+While the mode picker is open (`M`, or the `Mode` button), `↑`/`↓` on any pad (D-pad
+or either stick) moves the highlight and `A` picks it, exactly like `↑`/`↓` +
+`Enter` on the keyboard. There is no rumble, and the button map is fixed: see the
+end of this file.
 
 Everything else (jump, double jump, glide, shoves, the goal of each mode) is the
 same on a pad as on the keyboard — see the *Playing* and *Controls* sections of
@@ -134,7 +138,8 @@ readers at once.
 There is no rebinding UI; the mapping is constants at the top of
 `input/ojumpy-pad.py`: `BTN_SOUTH`/`BTN_EAST`/`BTN_WEST`/`BTN_NORTH`
 (304/305/308/307) for the face buttons, `ABS_X`/`ABS_RX`/`ABS_HAT0X` for the axes,
-`BTN_START`/`BTN_SELECT`/`BTN_MODE` (315/314/316) for start. Edit and save — the
+`BTN_START`/`BTN_SELECT`/`BTN_MODE` (315/314/316) for start, and the menu's
+up/down (`BTN_DPAD_UP`/`DOWN` 544/545, `ABS_HAT0Y`, `ABS_Y`/`ABS_RY`). Edit and save — the
 shell hot-reloads the plugin folder, so the next panel open uses the new map. A
 local edit is yours alone: `omarchy plugin update ojumpy` restores the committed
 version, so commit a remap in your own fork if you want to keep it.

@@ -32,6 +32,12 @@ KeyboardPanel {
     readonly property real padToggleH: padToggle.height
     readonly property real boardSlotH: boardSlot.height
     function focusGame() { gameFocus.forceActiveFocus() }
+
+    // The mode picker's cursor, driven from outside: Panel's key handler calls
+    // these directly, Panel's tick calls them on pad edges. The picker itself
+    // stays passive (it has no focus, so it never competes for keys).
+    function modeMoveCursor(delta) { modeSelect.moveCursor(delta) }
+    function modeActivateCursor() { modeSelect.activateCursor() }
     anchorItem: gamePanel.anchorButton
     owner: panel
     bar: panel.bar
@@ -89,6 +95,15 @@ KeyboardPanel {
                 event.accepted = true; return;
             }
             if (event.key === Qt.Key_M) { panel.modesOpen = !panel.modesOpen; event.accepted = true; return; }
+            if (panel.modesOpen) {
+                // the picker owns Up/Down/Enter while it is open: the sim is not
+                // ticked in that state, so no key is taken away from the game
+                if (event.key === Qt.Key_Up) { dropdown.modeMoveCursor(-1); event.accepted = true; return; }
+                if (event.key === Qt.Key_Down) { dropdown.modeMoveCursor(1); event.accepted = true; return; }
+                if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return) {
+                    dropdown.modeActivateCursor(); event.accepted = true; return;
+                }
+            }
             if (panel.modesOpen && event.key >= Qt.Key_1 && event.key <= Qt.Key_9) {
                 var list = Modes.list();
                 var idx = event.key - Qt.Key_1;

@@ -206,8 +206,11 @@ collision width *is* its pattern's width, at 9 base units per character.
 
 ## Modes screen
 
-`M` (or the `Mode` button) opens the picker; `1`–`3` pick a mode, `Esc` closes it
-without switching. Picking a mode starts a fresh round.
+`M` (or the `Mode` button) opens the picker; `1`–`3`, or `↑`/`↓` to move the
+highlight and `Enter`, picks a mode; `Esc` closes it without switching. On a pad:
+`↑`/`↓` (D-pad or either stick) and `A`. The cursor starts on the mode that is
+playing and skips the scaffolded one, so what is highlighted is always something
+that can be picked. Picking a mode starts a fresh round.
 
 ## Controls
 
@@ -216,7 +219,8 @@ without switching. Picking a mode starts a fresh round.
 | **P1** | pad 1 left stick / D-pad · `←`/`→` | `A` · `↑` / `Enter` | pad **Start** · `R` / `Enter` |
 | **P2** | pad 2 left stick · `A`/`D` (one pad: right stick) | `A`/`B`/`X` · `W` / `Space` | pad **Start** on either |
 
-`J` join/leave P2 · `P` pause · `S` stop · `M` modes · `F` fullscreen · `Esc` close.
+`J` join/leave P2 · `P` pause · `S` stop · `M` modes (`↑`/`↓` + `Enter` to pick) ·
+`F` fullscreen · `Esc` close.
 
 Buttons carry the action only; every shortcut lives in the button's tooltip, and
 the full list is in the **Ojumpy Manual** accordion at the bottom of the panel
@@ -227,21 +231,24 @@ the room left over rather than pushing the panel past the bottom edge.
 ## Debug IPC
 
 ```bash
-omarchy-shell ojumpy.debug state x      # live state (players, cameras, hazards, orb)
-omarchy-shell ojumpy.debug dims x       # scale diagnostics
-omarchy-shell ojumpy.debug modes x      # mode registry
-omarchy-shell ojumpy.debug course x     # generated course (idx, x, y, w, kind, glyph)
-omarchy-shell ojumpy.debug start 123 x  # start a round with a fixed seed
-omarchy-shell ojumpy.debug mode glyphhunt x
-omarchy-shell ojumpy.debug join x       # player 2 joins (split screen)
-omarchy-shell ojumpy.debug leave x      # back to solo
-omarchy-shell ojumpy.debug pause x      # freeze the round
-omarchy-shell ojumpy.debug resume x     # unfreeze it
-omarchy-shell ojumpy.debug fullscreen x
+omarchy-shell ojumpy.debug state          # live state (players, cameras, hazards, orb)
+omarchy-shell ojumpy.debug dims           # scale diagnostics
+omarchy-shell ojumpy.debug modes          # mode registry
+omarchy-shell ojumpy.debug course         # generated course (idx, x, y, w, kind, glyph)
+omarchy-shell ojumpy.debug start 123      # start a round with a fixed seed
+omarchy-shell ojumpy.debug mode glyphhunt
+omarchy-shell ojumpy.debug join           # player 2 joins (split screen)
+omarchy-shell ojumpy.debug leave          # back to solo
+omarchy-shell ojumpy.debug pause          # freeze the round
+omarchy-shell ojumpy.debug resume         # unfreeze it
+omarchy-shell ojumpy.debug fullscreen
+omarchy-shell ojumpy open                 # the shell's own panel control
+omarchy-shell ojumpy close                # (also: toggle, show, hide)
 ```
 
 They are a test hook: start/stop/join the local game only — no files, no shell
-commands, no persistence beyond the state document.
+commands, no persistence beyond the state document. `omarchy-shell ojumpy …` is
+not ours: the shell gives every plugin panel an `open`/`close`/`toggle` of its own.
 
 ## What it runs, and what it writes
 

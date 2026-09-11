@@ -169,7 +169,8 @@ Panel {
     // `-u` keeps python from buffering the lines away.
     property var pad: ({p1x: 0, p1left: false, p1right: false, p1jump: false,
                         p2x: 0, p2left: false, p2right: false, p2jump: false,
-                        start: false, connected: false, pads: 0})
+                        start: false, up: false, down: false, confirm: false,
+                        connected: false, pads: 0})
     function padAxis(v) {
         var n = Number(v);
         if (!isFinite(n)) return 0;
@@ -186,7 +187,8 @@ Panel {
             p1right: !!d.p1right, p1jump: !!d.p1jump,
             p2x: root.padAxis(d.p2x), p2left: !!d.p2left,
             p2right: !!d.p2right, p2jump: !!d.p2jump,
-            start: !!d.start, connected: !!d.connected,
+            start: !!d.start, up: !!d.up, down: !!d.down, confirm: !!d.confirm,
+            connected: !!d.connected,
             pads: Math.max(0, Math.min(8, Math.floor(Number(d.pads) || 0)))
         };
     }
@@ -365,6 +367,17 @@ Panel {
             // and reopens the panel on purpose to relayout (_fsKeep), so that one
             // close is excluded. pauseGame() is a no-op unless a round is live.
             if (!root.opened && !root._fsKeep) game.pauseGame();
+            // The mode picker takes the pad's vertical axis and A while it is
+            // open (rising edges only). The "was" flags are kept hot even while
+            // it is closed, so a button held from before cannot act the instant
+            // it opens. The racers move on X alone, so nothing is taken from them.
+            var mUp = !!root.pad.up, mDown = !!root.pad.down, mOk = !!root.pad.confirm;
+            if (root.modesOpen) {
+                if (mUp && !root.padUpWas) dropdown.modeMoveCursor(-1);
+                if (mDown && !root.padDownWas) dropdown.modeMoveCursor(1);
+                if (mOk && !root.padConfirmWas) dropdown.modeActivateCursor();
+            }
+            root.padUpWas = mUp; root.padDownWas = mDown; root.padConfirmWas = mOk;
             if (root.modesOpen) return;
             // tick() advances the sim only while a round is active; it always
             // settles the cameras, so the ready-state panes frame the spawns.
@@ -378,6 +391,10 @@ Panel {
 
     property bool padStartHeld: false
     property bool p2InputWas: false
+    // pad edges for the mode picker (see the tick)
+    property bool padUpWas: false
+    property bool padDownWas: false
+    property bool padConfirmWas: false
 
     // The palette arrives from ThemeStore asynchronously; nothing else has to
     // happen at startup (the store starts its own read).

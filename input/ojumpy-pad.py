@@ -12,6 +12,8 @@ Mapping (single Xbox pad hosts both racers):
   P2 (8) move : right stick X (ABS_RX) + D-pad X when 2nd pad present
   P2 (8) jump : B (BTN_EAST, 305), alt X (BTN_WEST, 308)
   round start : Start (315) / Select (314) / Mode (316), rising edge
+  menus       : up/down = D-pad Y, hat Y or either stick's Y past the
+                deadzone, confirm = A, on ANY pad (rising edges)
 
 Second physical pad (if any): its left stick + A feed P2 as well, so
 2 pads = 1 racer each. Everything merges, no config needed.
@@ -142,10 +144,15 @@ class PadState:
 
     def __init__(self):
         self.lx = 0.0
+        self.ly = 0.0
         self.rx = 0.0
+        self.ry = 0.0
         self.hatx = 0
+        self.haty = 0
         self.dpad_l = False
         self.dpad_r = False
+        self.dpad_u = False
+        self.dpad_d = False
         self.a = False
         self.b = False
         self.x = False
@@ -164,6 +171,18 @@ class PadState:
     def right_x(self):
         v = self.rx if abs(self.rx) >= 0.35 else 0.0
         return max(-1.0, min(1.0, v))
+
+    # Vertical moves are menus only (the racers move on X alone), so these
+    # answer "is this pad asking to go up?" from every source at once: a
+    # horizontal axis has to pick one source, a menu does not. Linux pads
+    # report up as negative on both the sticks and the hat.
+    def up_pressed(self):
+        return bool(self.dpad_u or self.haty < 0
+                    or self.ly <= -0.35 or self.ry <= -0.35)
+
+    def down_pressed(self):
+        return bool(self.dpad_d or self.haty > 0
+                    or self.ly >= 0.35 or self.ry >= 0.35)
 
 
 def merge_payload(pads, names):
@@ -195,6 +214,10 @@ def merge_payload(pads, names):
         "p2right": bool(p2x > 0.35),
         "p2jump": p2jump,
         "start": bool(any(s.start for s in pads)),
+        # menus (mode picker): any pad may drive them, any source that means up
+        "up": bool(any(s.up_pressed() for s in pads)),
+        "down": bool(any(s.down_pressed() for s in pads)),
+        "confirm": bool(any(s.a for s in pads)),
         "connected": True,
         "pads": len(names),
         "names": names[:4],
@@ -205,10 +228,48 @@ def norm(v):
     return max(-1.0, min(1.0, v / 32768.0))
 
 
+def apply_event(state, etype, code, value):
+    """Fold one evdev event into a pad's state (pure, so the mapping can be
+    tested without a device). Unknown codes are ignored on purpose: a pad
+    reports plenty of things this game has no use for."""
+    if etype == EV_ABS:
+        if code == ABS_X:
+            state.lx = norm(value)
+        elif code == ABS_Y:
+            state.ly = norm(value)
+        elif code == ABS_RX:
+            state.rx = norm(value)
+        elif code == ABS_RY:
+            state.ry = norm(value)
+        elif code == ABS_HAT0X:
+            state.hatx = max(-1, min(1, value))
+        elif code == ABS_HAT0Y:
+            state.haty = max(-1, min(1, value))
+    elif etype == EV_KEY:
+        pressed = bool(value)
+        if code == BTN_SOUTH:
+            state.a = pressed
+        elif code == BTN_EAST:
+            state.b = pressed
+        elif code in (BTN_WEST, BTN_NORTH):
+            state.x = pressed
+        elif code in (BTN_START, BTN_SELECT, BTN_MODE):
+            state.start = pressed
+        elif code == BTN_DPAD_LEFT:
+            state.dpad_l = pressed
+        elif code == BTN_DPAD_RIGHT:
+            state.dpad_r = pressed
+        elif code == BTN_DPAD_UP:
+            state.dpad_u = pressed
+        elif code == BTN_DPAD_DOWN:
+            state.dpad_d = pressed
+
+
 def disconnected():
     return {"p1x": 0.0, "p1left": False, "p1right": False, "p1jump": False,
             "p2x": 0.0, "p2left": False, "p2right": False, "p2jump": False,
-            "start": False, "connected": False, "pads": 0, "names": []}
+            "start": False, "up": False, "down": False, "confirm": False,
+            "connected": False, "pads": 0, "names": []}
 
 
 def emit(state):
@@ -313,29 +374,7 @@ def main():
                     except struct.error:
                         break
                     log_event(args.log, fd_name.get(fd, "?"), _type, code, value)
-                    if _type == EV_ABS:
-                        if code == ABS_X:
-                            s.lx = norm(value)
-                        elif code == ABS_RX:
-                            s.rx = norm(value)
-                        elif code == ABS_HAT0X:
-                            s.hatx = max(-1, min(1, value))
-                        elif code == ABS_HAT0Y:
-                            pass
-                    elif _type == EV_KEY:
-                        pressed = bool(value)
-                        if code == BTN_SOUTH:
-                            s.a = pressed
-                        elif code == BTN_EAST:
-                            s.b = pressed
-                        elif code in (BTN_WEST, BTN_NORTH):
-                            s.x = pressed
-                        elif code in (BTN_START, BTN_SELECT, BTN_MODE):
-                            s.start = pressed
-                        elif code == BTN_DPAD_LEFT:
-                            s.dpad_l = pressed
-                        elif code == BTN_DPAD_RIGHT:
-                            s.dpad_r = pressed
+                    apply_event(s, _type, code, value)
         else:
             time.sleep(1.0 / args.hz)
 
