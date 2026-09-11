@@ -100,7 +100,7 @@ keep your records on another machine.
 ```
 ojumpy/
 ├── Panel.qml            entry point: plugin state, palette, scale math, the tick
-├── manifest.json  preview.png  ojumpy.svg  LICENSE
+├── manifest.json  preview.png  icon.svg  LICENSE
 ├── README.md  FILES.md  GAMEPAD.md
 ├── ui/       the views  ─ GamePanel, BarButton, ReloadMenu, GameBoard,
 │                          BoardView, LandRipple, GlyphMetrics, ModeSelect,

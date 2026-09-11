@@ -11,7 +11,7 @@ would trigger a reload loop.
 ojumpy/
 ├── Panel.qml            entry point (manifest entryPoints: barWidget + panel)
 ├── manifest.json        schemaVersion 1, id `ojumpy`
-├── preview.png  ojumpy.svg  LICENSE
+├── preview.png  icon.svg  LICENSE
 ├── README.md  FILES.md  GAMEPAD.md
 ├── ui/                  the views: GamePanel (the drop-down card), BarButton,
 │                        ReloadMenu, GameBoard, BoardView, LandRipple,
