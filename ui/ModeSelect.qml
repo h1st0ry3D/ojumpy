@@ -114,7 +114,7 @@ Rectangle {
 
         Text {
             textFormat: Text.PlainText
-            text: "Esc closes • ↑/↓ then Enter picks • keys 1..3 pick • pad: ↑/↓ + A"
+            text: "Esc closes • ↑/↓ then Enter picks • keys 1..3 pick • pad: ↑/↓ + A (Select closes)"
                       + " • race-style: J joins P2 (split screen, own camera)"
             color: Util.alpha(Color.foreground, 0.7)
             font.family: "monospace"

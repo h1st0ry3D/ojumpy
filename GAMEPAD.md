@@ -81,17 +81,25 @@ the same player.
 | **P1** (first pad) | left stick **or** D-pad | **A** |
 | **P2** (second pad) | left stick **or** D-pad | **A**, **B** or **X** |
 | **P2** (only one pad) | right stick | **B** or **X** |
-| round start | **Start** / **Select** / **Mode** on any pad | |
+
+On the keyboard the split is WASD + `Space` for P1 and arrows + `Enter` for P2
+(solo: both drive P1) — see the *Controls* table in the [README](README.md).
 
 Movement is not analog: a stick past ~35 % counts as a direction, a D-pad press as
-full deflection. `Start` starts a round; it does not restart a running one (use the
-`Restart` button or `R`). Pushing P2's controls mid-round splits the screen. Pause
-has no pad binding — it is `P` or the panel button.
+full deflection. Pushing P2's controls mid-round splits the screen.
 
-While the mode picker is open (`M`, or the `Mode` button), `↑`/`↓` on any pad (D-pad
-or either stick) moves the highlight and `A` picks it, exactly like `↑`/`↓` +
-`Enter` on the keyboard. There is no rumble, and the button map is fixed: see the
-end of this file.
+| Button | What it does |
+|---|---|
+| **A** | jump (P1; also the picker's confirm) |
+| **B**, **X** | jump for P2 (on a single pad) |
+| **Start** | pause / resume |
+| **Select**, **Mode** | open or close the mode picker |
+| **R3** (click the right stick) | fullscreen, like `F` |
+| D-pad ↑/↓, either stick | move the picker's highlight; **A** picks |
+
+Starting a round is the picker's job on a pad: `Select`, then `A` — picking the mode
+that is already playing starts a fresh round rather than doing nothing. There is no
+rumble, and the button map is fixed: see the end of this file.
 
 Everything else (jump, double jump, glide, shoves, the goal of each mode) is the
 same on a pad as on the keyboard — see the *Playing* and *Controls* sections of
@@ -138,8 +146,9 @@ readers at once.
 There is no rebinding UI; the mapping is constants at the top of
 `input/ojumpy-pad.py`: `BTN_SOUTH`/`BTN_EAST`/`BTN_WEST`/`BTN_NORTH`
 (304/305/308/307) for the face buttons, `ABS_X`/`ABS_RX`/`ABS_HAT0X` for the axes,
-`BTN_START`/`BTN_SELECT`/`BTN_MODE` (315/314/316) for start, and the menu's
-up/down (`BTN_DPAD_UP`/`DOWN` 544/545, `ABS_HAT0Y`, `ABS_Y`/`ABS_RY`). Edit and save — the
+`BTN_START`/`BTN_SELECT`/`BTN_MODE` (315/314/316) for pause and the picker,
+`BTN_THUMBR` (318) for fullscreen, and the menu's up/down (`BTN_DPAD_UP`/`DOWN`
+544/545, `ABS_HAT0Y`, `ABS_Y`/`ABS_RY`). Edit and save — the
 shell hot-reloads the plugin folder, so the next panel open uses the new map. A
 local edit is yours alone: `omarchy plugin update ojumpy` restores the committed
 version, so commit a remap in your own fork if you want to keep it.

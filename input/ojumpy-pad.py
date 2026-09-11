@@ -14,6 +14,9 @@ Mapping (single Xbox pad hosts both racers):
   round start : Start (315) / Select (314) / Mode (316), rising edge
   menus       : up/down = D-pad Y, hat Y or either stick's Y past the
                 deadzone, confirm = A, on ANY pad (rising edges)
+  Start (315) : pause, on any pad (rising edge)
+  Select (314) / Mode (316): open/close the mode picker, on any pad
+  R3 (318)    : fullscreen, on any pad (rising edge; panel must be open)
 
 Second physical pad (if any): its left stick + A feed P2 as well, so
 2 pads = 1 racer each. Everything merges, no config needed.
@@ -40,6 +43,7 @@ BTN_SOUTH, BTN_EAST = 304, 305
 BTN_NORTH, BTN_WEST = 307, 308
 BTN_TL, BTN_TR = 310, 311
 BTN_SELECT, BTN_START, BTN_MODE = 314, 315, 316
+BTN_THUMBL, BTN_THUMBR = 317, 318          # L3 / R3: clicking the sticks
 BTN_DPAD_UP, BTN_DPAD_DOWN, BTN_DPAD_LEFT, BTN_DPAD_RIGHT = 544, 545, 546, 547
 
 # A device is a gamepad when the *desktop* says so: udev records the answer in
@@ -157,6 +161,8 @@ class PadState:
         self.b = False
         self.x = False
         self.start = False
+        self.select = False
+        self.r3 = False
 
     def left_x(self):
         v = self.lx if abs(self.lx) >= 0.35 else 0.0
@@ -213,7 +219,10 @@ def merge_payload(pads, names):
         "p2left": bool(p2x < -0.35),
         "p2right": bool(p2x > 0.35),
         "p2jump": p2jump,
-        "start": bool(any(s.start for s in pads)),
+        # Start pauses; Select/Mode opens the mode picker (Panel decides)
+        "pause": bool(any(s.start for s in pads)),
+        "menu": bool(any(s.select for s in pads)),
+        "fullscreen": bool(any(s.r3 for s in pads)),
         # menus (mode picker): any pad may drive them, any source that means up
         "up": bool(any(s.up_pressed() for s in pads)),
         "down": bool(any(s.down_pressed() for s in pads)),
@@ -253,8 +262,12 @@ def apply_event(state, etype, code, value):
             state.b = pressed
         elif code in (BTN_WEST, BTN_NORTH):
             state.x = pressed
-        elif code in (BTN_START, BTN_SELECT, BTN_MODE):
-            state.start = pressed
+        elif code == BTN_START:
+            state.start = pressed          # Panel: pause
+        elif code in (BTN_SELECT, BTN_MODE):
+            state.select = pressed         # Panel: mode picker
+        elif code == BTN_THUMBR:
+            state.r3 = pressed             # Panel: fullscreen
         elif code == BTN_DPAD_LEFT:
             state.dpad_l = pressed
         elif code == BTN_DPAD_RIGHT:
@@ -268,7 +281,8 @@ def apply_event(state, etype, code, value):
 def disconnected():
     return {"p1x": 0.0, "p1left": False, "p1right": False, "p1jump": False,
             "p2x": 0.0, "p2left": False, "p2right": False, "p2jump": False,
-            "start": False, "up": False, "down": False, "confirm": False,
+            "up": False, "down": False, "confirm": False,
+            "pause": False, "menu": False, "fullscreen": False,
             "connected": False, "pads": 0, "names": []}
 
 

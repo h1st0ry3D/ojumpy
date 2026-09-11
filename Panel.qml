@@ -11,6 +11,7 @@ import "audio"
 import "state"
 import "ipc"
 import "core/GameModes.js" as Modes
+import "core/Keys.js" as Keys
 
 // Ojumpy — 2-player glyph race for the Omarchy bar.
 //
@@ -111,12 +112,14 @@ Panel {
     readonly property real helpLabelW: Math.ceil(56 * root.uiScale)
     readonly property var helpRows: [
         { k: "Mode", v: game.mode.name + " — " + game.mode.tagline },
-        { k: "P1", v: "pad 1 stick / D-pad + A   ·   keys ←/→ + ↑/Enter" },
+        { k: "P1", v: "keys A/D + W or Space" + (game.p2Joined ? "" : "   ·   solo: also ←/→ + ↑ or Enter")
+                       + "   ·   pad 1 stick / D-pad + A" },
         { k: "P2", v: game.p2Joined
-                       ? "pad 2 stick + A/B   ·   keys A/D + W/Space   ·   own camera"
-                       : "J joins: pad 2 stick + A/B   ·   keys A/D + W/Space" },
+                       ? "keys ←/→ + ↑ or Enter   ·   pad 2 stick + A/B/X   ·   own camera"
+                       : "not in the round — J, or a pad's P2 buttons, joins" },
         { k: "Moves", v: "double jump: tap jump again mid-air   ·   hold jump while falling to glide (Ô)" },
-        { k: "Keys", v: "Enter/R start   ·   P pause   ·   S stop   ·   M modes   ·   F fullscreen   ·   Esc close" }
+        { k: "Keys", v: "R start   ·   P pause   ·   S stop   ·   M modes   ·   F fullscreen   ·   Esc close"
+                       + "   ·   pad: Start pause, Select modes" }
     ]
 
     // ---- ui state ----
@@ -169,13 +172,12 @@ Panel {
     // `-u` keeps python from buffering the lines away.
     property var pad: ({p1x: 0, p1left: false, p1right: false, p1jump: false,
                         p2x: 0, p2left: false, p2right: false, p2jump: false,
-                        start: false, up: false, down: false, confirm: false,
+                        up: false, down: false, confirm: false,
+                        pause: false, menu: false, fullscreen: false,
                         connected: false, pads: 0})
-    function padAxis(v) {
-        var n = Number(v);
-        if (!isFinite(n)) return 0;
-        return n < -1 ? -1 : (n > 1 ? 1 : n);
-    }
+    // Pad lines come from a helper process, so a value here is still input: the
+    // fields are re-coerced, and the axes are clamped through the same helper the
+    // layout uses (core/Keys.js), so both agree on what a stick value means.
     function applyPadLine(line) {
         var s = String(line || "");
         if (s.length > root.padLineMax) return;          // reject, never truncate
@@ -183,11 +185,12 @@ Panel {
         try { d = JSON.parse(s); } catch (e) { return; }
         if (!d || typeof d !== "object") return;
         root.pad = {
-            p1x: root.padAxis(d.p1x), p1left: !!d.p1left,
+            p1x: Keys.axis(d, "p1x"), p1left: !!d.p1left,
             p1right: !!d.p1right, p1jump: !!d.p1jump,
-            p2x: root.padAxis(d.p2x), p2left: !!d.p2left,
+            p2x: Keys.axis(d, "p2x"), p2left: !!d.p2left,
             p2right: !!d.p2right, p2jump: !!d.p2jump,
-            start: !!d.start, up: !!d.up, down: !!d.down, confirm: !!d.confirm,
+            up: !!d.up, down: !!d.down, confirm: !!d.confirm,
+            pause: !!d.pause, menu: !!d.menu, fullscreen: !!d.fullscreen,
             connected: !!d.connected,
             pads: Math.max(0, Math.min(8, Math.floor(Number(d.pads) || 0)))
         };
@@ -303,24 +306,16 @@ Panel {
     function fmt(t) { return game.fmtTime(t); }
 
     // ---- input sources: keyboard (keysDown) + pad bridge ----
-    function p1Left() {
-        return !!root.keysDown[Qt.Key_Left] || !!root.pad.p1left || (Number(root.pad.p1x) || 0) < -0.35;
-    }
-    function p1Right() {
-        return !!root.keysDown[Qt.Key_Right] || !!root.pad.p1right || (Number(root.pad.p1x) || 0) > 0.35;
-    }
-    function p1JumpHeld() {
-        return !!root.keysDown[Qt.Key_Up] || !!root.keysDown[Qt.Key_Enter] || !!root.pad.p1jump;
-    }
-    function p2Left() {
-        return !!root.keysDown[Qt.Key_A] || !!root.pad.p2left || (Number(root.pad.p2x) || 0) < -0.35;
-    }
-    function p2Right() {
-        return !!root.keysDown[Qt.Key_D] || !!root.pad.p2right || (Number(root.pad.p2x) || 0) > 0.35;
-    }
-    function p2JumpHeld() {
-        return !!root.keysDown[Qt.Key_W] || !!root.keysDown[Qt.Key_Space] || !!root.pad.p2jump;
-    }
+    // The *layout* (which key means what, and how solo play merges the two key
+    // sets) is core/Keys.js, pure and checkable on its own; these wrappers only
+    // feed it the live key set, the pad state and whether P2 is in the round.
+    function p1Left() { return Keys.p1Left(root.keysDown, root.pad, game.p2Joined); }
+    function p1Right() { return Keys.p1Right(root.keysDown, root.pad, game.p2Joined); }
+    function p1JumpHeld() { return Keys.p1Jump(root.keysDown, root.pad, game.p2Joined); }
+    function p2Left() { return Keys.p2Left(root.keysDown, root.pad); }
+    function p2Right() { return Keys.p2Right(root.keysDown, root.pad); }
+    function p2JumpHeld() { return Keys.p2Jump(root.keysDown, root.pad); }
+    function p2PadInput() { return Keys.p2PadInput(root.pad); }
 
     // ---- reload (context menu) ----
     Process { id: reloadProc }
@@ -348,14 +343,23 @@ Panel {
         id: tick
         interval: 16; running: true; repeat: true
         onTriggered: {
-            var s = !!root.pad.start;
-            if (s && !root.padStartHeld && !root.modesOpen) {
-                if (!game.roundActive) game.startRound();
-            }
-            root.padStartHeld = s;
-            // P2 joins on J, or on a fresh P2 input (edge-triggered, so leaving
-            // with a button held doesn't instantly re-join). Solo: P2 is inert.
-            var p2in = root.p2Left() || root.p2Right() || root.p2JumpHeld();
+            // Pad buttons: Start pauses, Select (or Mode) opens the mode picker,
+            // R3 toggles fullscreen — all on rising edges. Start no longer starts
+            // a round — a pad-only player starts one with Select then A, which
+            // starts the round even when the mode picked is the one already
+            // playing (see ModeSelect). Fullscreen is the same view-only toggle
+            // as F, so it is ignored while the panel is shut (nothing is drawn to
+            // go fullscreen, and the flag is cleared on the next close anyway).
+            var pPause = !!root.pad.pause, pMenu = !!root.pad.menu;
+            var pFs = !!root.pad.fullscreen;
+            if (pPause && !root.padPauseWas) game.togglePause();
+            if (pMenu && !root.padMenuWas) root.modesOpen = !root.modesOpen;
+            if (pFs && !root.padFsWas && root.opened) root.toggleFullscreen();
+            root.padPauseWas = pPause; root.padMenuWas = pMenu; root.padFsWas = pFs;
+            // P2 joins on J, or on a fresh *pad* P2 input (edge-triggered, so
+            // leaving with a button held doesn't instantly re-join). Solo: P2 is
+            // inert. The keyboard's P2 keys cannot join — see p2PadInput().
+            var p2in = root.p2PadInput();
             if (!game.p2Joined && p2in && !root.p2InputWas) game.joinP2();
             root.p2InputWas = p2in;
             // The panel is the only place the game is drawn, so a round must
@@ -389,7 +393,9 @@ Panel {
         }
     }
 
-    property bool padStartHeld: false
+    property bool padPauseWas: false
+    property bool padMenuWas: false
+    property bool padFsWas: false
     property bool p2InputWas: false
     // pad edges for the mode picker (see the tick)
     property bool padUpWas: false

@@ -23,13 +23,14 @@ no packages, no network: one shell plugin, three small stdlib-only helpers.
 
 ## Solo start & split screen
 
-The bar widget shows `ö_Ö` when nothing is running. Open the panel, press `R` or
-`Enter` (or **Start** on a pad) to play solo: one camera, one arena.
+The bar widget shows `ö_Ö` when nothing is running. Open the panel, press `R` to
+play solo (on a pad: `Select`, then `A` in the picker): one camera, one arena.
 
-`J` — or any fresh input from player 2 (right stick on a single pad, the second
-pad, `A`/`D`) — joins the second racer: the board splits into two panes, each with
-its own camera, and both glyphs render in both panes. `J` again leaves, back to
-solo. A mid-round join spawns P2 clean on the start pad.
+`J` — or any fresh input from player 2's *pad* (right stick on a single pad, the
+second pad, `B`/`X`) — joins the second racer: the board splits into two panes, each
+with its own camera, and both glyphs render in both panes. `J` again leaves, back to
+solo. A mid-round join spawns P2 clean on the start pad. On the keyboard, `J` (or
+the `Splitscreen` button) is the only way in: the arrow keys are P1's own while solo.
 
 ## Install (another Omarchy machine)
 
@@ -187,9 +188,9 @@ standing on the summit does not count. The glyph that touched it is drawn at the
 orb's size with a steady glow, and the verdict card waits two seconds so the
 arena shows that beat before the confetti starts.
 
-**Pause.** `P`, or the `Pause`/`Resume` button, freezes the round: players, rocks,
-ghosts and the clock all hold, and resuming shifts the start stamp so the paused
-stretch is never charged to the run. Closing the panel pauses a running round
+**Pause.** `P`, the `Pause`/`Resume` button, or `Start` on a pad freezes the round:
+players, rocks, ghosts and the clock all hold, and resuming shifts the start stamp
+so the paused stretch is never charged to the run. Closing the panel pauses a running round
 automatically (fullscreen does not — it reopens the panel to relayout), so a round
 you cannot see does not keep falling apart. Paused rounds show a `❚❚ paused` card
 over the frozen arena and drop the bar label back to `ö_Ö`.
@@ -216,11 +217,15 @@ that can be picked. Picking a mode starts a fresh round.
 
 | | Move | Jump | Start |
 |---|---|---|---|
-| **P1** | pad 1 left stick / D-pad · `←`/`→` | `A` · `↑` / `Enter` | pad **Start** · `R` / `Enter` |
-| **P2** | pad 2 left stick · `A`/`D` (one pad: right stick) | `A`/`B`/`X` · `W` / `Space` | pad **Start** on either |
+| **P1** | `A`/`D` · pad 1 left stick / D-pad | `W` or `Space` · pad `A` | `R` · pad Select then `A` |
+| **P2** | `←`/`→` · pad 2 left stick / D-pad | `↑` or `Enter` (numpad too) · pad `A`/`B`/`X` | `R` on the keyboard |
+
+Solo, when P2 has not joined, **both sets drive P1** — WASD + `Space` or arrows +
+`Enter`, whichever hand you prefer. `J` (or a fresh pad P2 input) splits them apart
+again: then `←`/`→`/`↑`/`Enter` belong to P2 alone.
 
 `J` join/leave P2 · `P` pause · `S` stop · `M` modes (`↑`/`↓` + `Enter` to pick) ·
-`F` fullscreen · `Esc` close.
+`F` fullscreen (pad `R3`) · `Esc` close · pad: `Start` pause, `Select` modes (`↑`/`↓` + `A`).
 
 Buttons carry the action only; every shortcut lives in the button's tooltip, and
 the full list is in the **Ojumpy Manual** accordion at the bottom of the panel

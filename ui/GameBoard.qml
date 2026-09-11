@@ -149,7 +149,7 @@ Rectangle {
                 }
                 Text {
                     textFormat: Text.PlainText
-                    text: "Enter  ·  R  ·  pad START"
+                    text: "R  ·  pad Select, A"
                     color: Util.alpha(Color.foreground, 0.9)
                     font.family: "monospace"
                     font.pixelSize: 10 * board.overlayScale
@@ -309,7 +309,7 @@ Rectangle {
             Text {
                 textFormat: Text.PlainText
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: "Enter / R  ·  rematch    M  ·  modes"
+                text: "R  ·  rematch    M  ·  modes"
                 color: Util.alpha(Color.foreground, 0.75)
                 font.family: "monospace"
                 font.pixelSize: 10 * board.overlayScale

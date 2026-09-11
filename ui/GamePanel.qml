@@ -120,9 +120,9 @@ KeyboardPanel {
             if (event.key === Qt.Key_J) {
                 game.toggleP2(); event.accepted = true; return;
             }
-            if ((event.key === Qt.Key_Enter || event.key === Qt.Key_Return) && !panel.modesOpen && !game.roundActive) {
-                game.startRound(); event.accepted = true; return;
-            }
+            // Enter is player 2's jump now (solo: P1's as well), so nothing here
+            // starts a round — that is R, the panel's button, or, on a pad,
+            // Select then A in the picker.
             if (event.key === Qt.Key_S) {
                 game.stopGame(); panel.modesOpen = false; event.accepted = true; return;
             }
@@ -287,7 +287,7 @@ KeyboardPanel {
                 spacing: Style.space(8)
                 Button {
                     text: game.roundActive ? "Stop" : "Start"
-                    tooltipText: game.roundActive ? "Stop the round (S)" : "Start a round (R / Enter)"
+                    tooltipText: game.roundActive ? "Stop the round (S)" : "Start a round (R)"
                     fontSize: Style.font.body * panel.uiScale
                     onClicked: game.roundActive ? game.stopGame() : game.startRound()
                 }
