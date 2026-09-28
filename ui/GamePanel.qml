@@ -48,7 +48,7 @@ KeyboardPanel {
     // ---- win confetti across the whole panel (fullscreen = whole screen) ----
     // Held back 1 s after the win (ROUND_CLEAR_HOLD_TIME) so the glyph beat
     // lands first; GameBoard runs the 2 s verdict delay, this one the shower.
-    // Any win fires it: the orb (racing modes) or the tenth glyph (Glyph Hunt).
+    // Any win fires it: the orb (racing modes) or the target score (Glyph Hunt).
     Confetti {
         anchors.fill: parent
         z: 6

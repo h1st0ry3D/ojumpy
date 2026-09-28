@@ -72,16 +72,19 @@ var ASTERISKS = {
 // yours scores, touching theirs is a body shove (the same bump cue) that kills
 // on the spot, leaves a ghost marker and sends the player back to platform 0.
 //
+// The pair drops whether or not player 2 has joined, so solo play gets both
+// colours too: the second one is pure handicap, a hazard to read and dodge for a
+// round with nobody to compete against.
+//
 // Tunables (base units, seconds), the rock knobs plus:
 //   glyphs    one character per size class (small, middle, large)
 //   points    what one catch of each size class is worth
 //   teams     true = colour each drop for one player and score on touch
 //   target    points needed to win
-// In solo play every glyph is player 1's, so the mode still works alone.
 var GLYPHS = {
     id: "glyphhunt",
     name: "Glyph Hunt",
-    tagline: "Reach 10 points: $ 3 · & 2 · # 1 — the other colour kills",
+    tagline: "Reach 100 points: $ 3 · & 2 · # 1 — the other colour kills",
     tagGlyph: "$",                  // the richest catch: the small size class
     ready: true,
     tracksBest: true,
@@ -99,7 +102,7 @@ var GLYPHS = {
         fallSpeed: 150,
         speedRamp: 110,
         teams: true,
-        target: 10
+        target: 100
     },
     onLand: function () { return false; },
     onFall: function () { return false; },

@@ -743,9 +743,10 @@ Item {
         var sz = Math.floor(_hazRand() * cfg.sizes.length);
         if (sz > cfg.sizes.length - 1) sz = cfg.sizes.length - 1;
         // Collect modes spawn a matched PAIR per gap: one glyph per colour at the
-        // same size class, independent positions. Solo keeps one, always P1's.
+        // same size class, independent positions. The pair drops in solo play too,
+        // where the second colour is a hazard with no player 2 to catch it.
         _emitHazard(cfg, sz, 0);
-        if (cfg.teams && p2Joined) _emitHazard(cfg, sz, 1);
+        if (cfg.teams) _emitHazard(cfg, sz, 1);
         hazTimer = 0;
         // rate ramps with the leader (gapMin at the top) and jitters ±25 %
         var gap = cfg.gapMin + (cfg.gapMax - cfg.gapMin) * (1 - _hazLead());

@@ -15,8 +15,8 @@ no packages, no network: one shell plugin, three small stdlib-only helpers.
 - players are solid: side shoves, riding on the other's head, bump flash
 - three ready modes — Race to 100, Asterisk Attack, Glyph Hunt — plus one scaffold
 - Asterisk Attack drops bouncing `*` rocks and a bold-`O` power-up; Glyph Hunt
-  pairs every drop in both players' colours and scores the catches (small `$` 3,
-  middle `&` 2, large `#` 1)
+  pairs every drop in both players' colours (solo included, as a handicap) and
+  scores the catches (small `$` 3, middle `&` 2, large `#` 1)
 - the summit orb ends the round: it breathes, brightens as it pulses, and the
   player who touches it gets the verdict card, confetti and a best time
 - `P` pauses (and closing the panel pauses a running round for you)
@@ -150,7 +150,7 @@ delegates the rules to each entry's hooks (`onLand`, `onFall`, `onTick`).
 |---|---|---|---|
 | **Race to 100** | be the first to touch the summit orb | `~` | — |
 | **Asterisk Attack** | the same climb, under bombardment | `~` | `*` rocks in three sizes, bouncing off the arena walls, faster as the leader climbs; a bold `O` power-up drops at platform 50 (and every 5 deaths) that absorbs one hit |
-| **Glyph Hunt** | reach 10 points | `$` | every drop is a matched pair, one per player in their own colour and in no other: catch yours for points and a bing, touch theirs and it hits like a shove and kills you. `$` is the small one and worth 3, `&` 2, `#` (the large one) 1. No summit orb |
+| **Glyph Hunt** | reach 100 points | `$` | every drop is a matched pair, one per colour, in that player's colour and no other: catch yours for points and a bing, touch the other one and it hits like a shove and kills you. The pair drops in solo play too, where the second colour is pure handicap. `$` is the small one and worth 3, `&` 2, `#` (the large one) 1. No summit orb |
 | *Fall Gauntlet* | scaffold, not playable yet | — | — |
 
 The pane HUD tag reads `P1: 3_100 | Ø 4` — owner, the mode's goal glyph in
