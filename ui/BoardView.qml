@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import "../core/Faces.js" as Faces
 
 // Ojumpy viewport — one pane, one camera.
 //
@@ -54,16 +55,16 @@ Item {
 
     // ---- glyph ink metrics ----
     // GlyphMetrics.qml owns the probes, the ink ratios and the lookup helpers.
-    readonly property string playerGlyph: "Ö"
-    readonly property string glideGlyph: "Ô"   // O with a circumflex: the glider
+    //
+    // A player's letter comes from core/Faces.js, so the two players are told apart
+    // by shape as well as by colour: P1 is the O face, P2 the U face, and every
+    // state of a face is that letter with its dots kept, dropped or topped. Both
+    // players' characters are measured, since both are drawn in both panes.
     readonly property string deathGlyph: "Ø"   // crossed O: a death marker
-    // Landing impact: the glyph drops to the plain `o` for a moment, the same glyph
-    // the idle blink closes into.
-    readonly property string landingGlyph: "o"
-    // Idle: after `idleSeconds` without moving, a small ö with blinking dots;
-    // `blinkGlyph` is the plain o.
-    readonly property string idleGlyph: "ö"
-    readonly property string blinkGlyph: "o"
+    readonly property var playerGlyphs: Faces.glyphs()
+    function faceOf(idx) { return Faces.of(idx); }
+    // Idle: after `idleSeconds` without moving, the face shrinks to its sleeping
+    // self, dots blinking, and closes into the bare letter after `idleBlinks`.
     readonly property real idleSeconds: 3
     readonly property int idleBlinks: 10
     // Every character the mode can drop, measured so a drop's ink box is its
@@ -86,8 +87,7 @@ Item {
     GlyphMetrics {
         id: ink
         platformGlyphs: view.engine.glyphs.concat([view.engine.finishGlyph])
-        playerGlyphs: [view.playerGlyph, view.glideGlyph, view.deathGlyph, view.landingGlyph,
-                       view.idleGlyph, view.blinkGlyph]
+        playerGlyphs: view.playerGlyphs.concat([view.deathGlyph])
         hazardGlyphs: view.hazardGlyphs
         orbGlyphs: [view.orbGlyph]
     }
@@ -310,18 +310,19 @@ Item {
             required property int index
             readonly property bool live: view.engine.powerupLive(index)
             readonly property color base: index === 0 ? view.p1Color : view.p2Color
+            readonly property var face: view.faceOf(index)
             readonly property real sx: (view.engine.powerupXAt(index) - view.camX) * view.scaleX
             readonly property real sy: (view.engine.powerupYAt(index) - view.camY) * view.scaleY
             visible: live && index === view.selfIdx
                      && sy > -40 && sy < view.height + 40
                      && sx > -40 && sx < view.width + 40
-            text: view.playerGlyph
+            // the drop wears its owner's face, and is placed on the world point
+            // through that face's measured ink, so the box and the glyph agree
+            text: face.letter
             color: view.glowInk(base, powerPulse, view.hitGlowFill)
-            // placed on the world point through the measured ink, so the box
-            // and the glyph agree
             x: sx - width / 2
-            y: sy - (ink.playerInkBottomPx(view.playerGlyph, view.playerFontPx)
-                     - ink.playerInkHeightPx(view.playerGlyph, view.playerFontPx) / 2)
+            y: sy - (ink.playerInkBottomPx(face.letter, view.playerFontPx)
+                     - ink.playerInkHeightPx(face.letter, view.playerFontPx) / 2)
             font.family: "monospace"
             font.pixelSize: view.playerFontPx
             font.bold: true
@@ -400,20 +401,28 @@ Item {
             readonly property real idleFor: isP1 ? view.engine.p1Idle : view.engine.p2Idle
             readonly property bool asleep: idleFor >= view.idleSeconds
                                            && !playerItem.shielded && !playerItem.orbHero
-            readonly property string glyph: playerItem.impactTiny ? view.landingGlyph
-                                             : (gliding ? view.glideGlyph
+            readonly property var face: view.faceOf(playerItem.index)
+            // the face, its sleeping self, the bare letter, or the glider's hat.
+            // A landing impact drops to the bare letter, the same character the
+            // idle blink closes into.
+            readonly property string glyph: playerItem.impactTiny ? playerItem.face.blink
+                                             : (gliding ? playerItem.face.glide
                                                 : (playerItem.asleep
                                                    ? ((playerItem.blinking
                                                        || playerItem.blinks >= view.idleBlinks)
-                                                      ? view.blinkGlyph : view.idleGlyph)
-                                                   : view.playerGlyph))
+                                                      ? playerItem.face.blink
+                                                      : playerItem.face.sleep)
+                                                   : playerItem.face.letter))
             // riding the other glyph: drop by the carrier's painted-head offset so
             // the rider's feet touch the art, not its box top
             readonly property bool onHead: isP1 ? view.engine.p1OnHead
                                                : view.engine.p2OnHead
+            // the other player's face, which is what the rider's feet land on
+            readonly property var carrier: view.faceOf(1 - playerItem.index)
             readonly property string carrierGlyph: (isP1 ? view.engine.p2Gliding
                                                          : view.engine.p1Gliding)
-                                                   ? view.glideGlyph : view.playerGlyph
+                                                   ? playerItem.carrier.glide
+                                                   : playerItem.carrier.letter
             readonly property real headSink: onHead
                 ? view.engine.playerH * view.scaleY
                   - ink.playerInkHeightPx(carrierGlyph, view.playerFontPx)

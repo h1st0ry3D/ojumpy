@@ -102,7 +102,7 @@ Panel {
         { k: "P2", v: game.p2Joined
                        ? "keys ←/→ + ↑ or Enter   ·   pad 2 stick + A/B/X   ·   own camera"
                        : "not in the round — J, or a pad's P2 buttons, joins" },
-        { k: "Moves", v: "double jump: tap jump again mid-air   ·   hold jump while falling to glide (Ô)"
+        { k: "Moves", v: "double jump: tap jump again mid-air   ·   hold jump while falling to glide (the hat: Ô / Û)"
                        + (game.mode.matchFall === true
                           ? "   ·   Match or Fall: E switches you between the two platform colours"
                             + (game.p2Joined ? " (P2: .)" : "") : "") },
@@ -395,7 +395,7 @@ Panel {
     readonly property string barLabel: game.roundActive
         ? (game.scoreTarget > 0 ? (game.p1Score + "_" + game.scoreTarget)
                                 : (game.p1Plat + "_" + (game.platforms.length - 1)))
-        : "ö_Ö"
+        : "Ö_Ü"
 
     BarButton {
         id: button

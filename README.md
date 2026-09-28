@@ -1,7 +1,7 @@
 # Ojumpy
 
 A two-player glyph race for the Omarchy bar. Two racers climb a generated
-101-platform tower — the glyphs start as `Ö`, sleep when you leave them alone,
+101-platform tower — P1 is the `Ö` glyph and P2 the `Ü`, both sleep when left alone,
 glide, wobble when they walk, shove each other, dodge whatever the mode drops on
 them and finish by jumping into the orb at the summit.
 
@@ -26,7 +26,7 @@ no packages, no network: one shell plugin, three small stdlib-only helpers.
 
 ## Solo start & split screen
 
-The bar widget shows `ö_Ö` when nothing is running. Open the panel, press `R` to
+The bar widget shows `ö_Ü` when nothing is running. Open the panel, press `R` to
 play solo (`Enter` and pad `Start` do the same from the ready screen): one camera,
 one arena.
 
@@ -110,7 +110,7 @@ ojumpy/
 ├── ui/       the views  ─ GamePanel, BarButton, ReloadMenu, GameBoard,
 │                          BoardView, LandRipple, GlyphMetrics, ModeSelect,
 │                          Confetti, Plain.js
-├── core/     the game   ─ GameEngine, Course.js, GameModes.js
+├── core/     the game   ─ GameEngine, Course.js, GameModes.js, Faces.js, Keys.js
 ├── audio/    the sound  ─ Sfx.qml, ojumpy-sfx.py, sfx/*.wav
 ├── input/    ojumpy-pad.py       (evdev bridge, opt-in)
 ├── ipc/      DebugIpc.qml        (`ojumpy.debug` handlers)
@@ -122,6 +122,7 @@ ojumpy/
 | `Panel.qml` | The shell entry point: plugin state and helper paths, theme palette roles, scale/fullscreen math, input aggregation, the tick, and the auto-pause. Owns no view ids — `ui/GamePanel.qml` reports its chrome heights back for the sizing math. |
 | `core/GameEngine.qml` | The simulation, in fixed base units (440×500): movement, gravity, jump/glide, platforms, players as each other's platforms, hazards, power-ups, the orb, ghosts, cameras, pause, and the mode hooks' dispatch. No view code, no scaling. |
 | `core/Course.js` | The course generator as pure functions — `build(config, seed)`, same seed ⇒ same course. |
+| `core/Faces.js` | The two players' letters as pure data: each player's face and its sleeping, blinking and gliding forms, with `of(idx)` and the measured character list. One source of truth, so the view, the win verdict and the bar label cannot disagree about what a player looks like. |
 | `core/GameModes.js` | The rules registry: three ready modes plus a scaffold, each with its tag glyph, hooks and (optionally) a hazard block the engine reads. |
 | `ui/GamePanel.qml` | The drop-down card: header (clock, best, fullscreen, close), board slot, action row, the *Ojumpy Manual* accordion and the gamepad switch. |
 | `ui/BoardView.qml` | One pane with one camera: platforms, both glyphs, ghosts, the orb, hazards, the power-up, landing ripple, walk wobble, bump glow, pane HUD tag. |
@@ -166,11 +167,17 @@ count once there is one.
 counts as a direction. Jump is a fixed velocity and you get two of them: tap again
 mid-air for a second full-height jump. *Hold* jump while falling, after at least
 one jump, to glide: gravity drops to 35 % and the descent is capped, so a held
-press floats you across a gap. The glyph becomes `Ô` (glider) while it lasts.
+press floats you across a gap. The glyph takes its hat — `Ô` for P1, `Û` for
+P2 — while it lasts.
 
-**The players are `Ö`.** Out of the gate they are `Ö`, and when nobody touches
-them they fall asleep: after 3 s they are a small `ö` whose dots blink, then
-settle into a closed-eye `o` after ten blinks. Any input wakes them.
+**The players are letters, and each has their own.** P1 is the `Ö` face, P2 the
+`Ü` face, so the two are told apart by shape as well as by colour in every mode —
+which matters most in Match or Fall, where the colour is the thing you switch.
+Every state of a face is that same letter with its dots kept, dropped or topped:
+out of the gate they are `Ö` and `Ü`, gliding puts a hat on (`Ô` / `Û`), and when
+nobody touches them they fall asleep — after 3 s a small `ö` / `ü` whose dots
+blink, settling into the bare letter (`o` / `u`) after ten blinks. Any input wakes
+them.
 
 **Match or Fall.** The climb and the summit orb are Race to 100's, but every
 climbing platform is painted in player 1's or player 2's colour, tagged in equal
@@ -212,7 +219,7 @@ automatically (fullscreen does not — it reopens the panel to relayout), so a r
 you cannot see does not keep falling apart. Paused rounds show a `❚❚ paused` card
 over the frozen arena. The bar keeps showing the frozen progress while paused —
 the label is what sizes the bar icon's slot and the panel is anchored to that
-button, so switching it back to `ö_Ö` would shift the whole panel sideways. The
+button, so switching it back to `ö_Ü` would shift the whole panel sideways. The
 paused state is in the bar tooltip (`Ojumpy — Race to 100 · paused · keyboard`).
 
 **Course generation.** Levels are built in base units from the round seed, on a

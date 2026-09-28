@@ -1,6 +1,7 @@
 import QtQuick
 import "GameModes.js" as Modes
 import "Course.js" as Course
+import "Faces.js" as Faces
 
 // Ojumpy game engine — non-visual simulation.
 //
@@ -24,7 +25,8 @@ Item {
 
     // ---- glide (hold jump while falling) ----
     // After at least one jump, holding jump while falling scales gravity down
-    // and caps the fall. The view draws the glider glyph (Ô) while active.
+    // and caps the fall. The view draws the glider glyph (the face's hat: Ô/Û)
+    // while active.
     readonly property real glideGravityMult: 0.35
     readonly property real glideFall: 110
     // vertical overlap (base units) above which a pair is a side hit, not a rider
@@ -162,7 +164,7 @@ Item {
     property int p2Jumps: 0
     property bool p1JumpWas: false
     property bool p2JumpWas: false
-    property bool p1Gliding: false   // jump held while falling (view shows Ô)
+    property bool p1Gliding: false   // jump held while falling (view shows the hat)
     property bool p2Gliding: false
     property bool p1OnHead: false    // on the other player's head; the view drops
     property bool p2OnHead: false    // the rider so its feet touch the painted head
@@ -360,7 +362,7 @@ Item {
     property real orbBrightPulse: 0
     readonly property real orbRNow: orbR * (1 + orbGrow * orbSizePulse)
     // The orb is touched by the *painted* body, ink height included: standing on
-    // the summit leaves a gap (the painted top of an Ö is 17.4 above the feet
+    // the summit leaves a gap (the painted top of a face is 17.4 above the feet
     // line, the orb's bottom 49.5), while a jump puts the ink through it even
     // though the orb's bottom rises with the taller ink: the widest contact
     // window is orbRNow + paintedH/2 = 20.3 at the pulse peak against a standing
@@ -695,8 +697,11 @@ Item {
     function declareWin(idx, timeSec) {
         if (!roundActive || winner !== "") return;
         winTime = timeSec;
-        winner = idx === 0 ? "Player 1 (Ö)" : "Player 2 (Ö)";
-        winnerGlyph = "Ö";
+        // the winner is named with their own face, so the verdict reads the same
+        // way the pane they were climbing in did
+        winner = idx === 0 ? "Player 1 (" + Faces.of(0).letter + ")"
+                           : "Player 2 (" + Faces.of(1).letter + ")";
+        winnerGlyph = Faces.of(idx).letter;
         if (idx === 0) p1done = true; else p2done = true;
         roundActive = false;
         var m = Modes.get(modeId);
