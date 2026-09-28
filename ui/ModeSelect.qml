@@ -18,6 +18,14 @@ Rectangle {
     signal picked(string modeId)
 
     readonly property var modeList: Modes.list()
+    // the number keys pick ready modes in list order, so the hint counts them
+    // instead of hard-coding a range that goes stale on the next mode
+    readonly property int readyCount: {
+        var n = 0;
+        for (var i = 0; i < modeSelect.modeList.length; i++)
+            if (modeSelect.modeList[i].ready === true) n++;
+        return n;
+    }
 
     // Highlight row, moved by hover, the keyboard (Panel's key handler) or a pad
     // (Panel's tick), all three through the functions below
@@ -112,7 +120,8 @@ Rectangle {
 
         Text {
             textFormat: Text.PlainText
-            text: "Esc closes • ↑/↓ then Enter picks • keys 1..3 pick • pad: ↑/↓ + A (Select closes)"
+            text: "Esc closes • ↑/↓ then Enter picks • keys 1.." + modeSelect.readyCount
+                  + " pick • pad: ↑/↓ + A (Select closes)"
                       + " • race-style: J joins P2 (split screen, own camera)"
             color: Util.alpha(Color.foreground, 0.7)
             font.family: "monospace"

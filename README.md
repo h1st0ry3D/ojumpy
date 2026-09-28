@@ -13,7 +13,9 @@ no packages, no network: one shell plugin, three small stdlib-only helpers.
 - 101 platforms, generated per round from a seed (same seed ⇒ same course)
 - single and double jump, glide while falling, walk wobble, landing ripple
 - players are solid: side shoves, riding on the other's head, bump flash
-- three ready modes — Race to 100, Asterisk Attack, Glyph Hunt — plus one scaffold
+- Match or Fall: colour-tagged platforms, a switch key, and a fall through the
+  ones that are not yours
+- four ready modes — Race to 100, Asterisk Attack, Glyph Hunt, Match or Fall — plus one scaffold
 - Asterisk Attack drops bouncing `*` rocks and a bold-`O` power-up; Glyph Hunt
   pairs every drop in both players' colours (solo included, as a handicap) and
   scores the catches (small `$` 3, middle `&` 2, large `#` 1)
@@ -151,6 +153,7 @@ delegates the rules to each entry's hooks (`onLand`, `onFall`, `onTick`).
 | **Race to 100** | be the first to touch the summit orb | `~` | — |
 | **Asterisk Attack** | the same climb, under bombardment | `~` | `*` rocks in three sizes, bouncing off the arena walls, faster as the leader climbs; a bold `O` power-up drops at platform 50 (and every 5 deaths) that absorbs one hit |
 | **Glyph Hunt** | reach 100 points | `$` | every drop is a matched pair, one per colour, in that player's colour and no other: catch yours for points and a bing, touch the other one and it hits like a shove and kills you. The pair drops in solo play too, where the second colour is pure handicap. `$` is the small one and worth 3, `&` 2, `#` (the large one) 1. No summit orb |
+| **Match or Fall** | the Race to 100 climb, on platforms of one colour | `~` | every climbing platform carries player 1's or player 2's colour, assigned in equal halves and shuffled. A platform only holds you if your glyph wears its colour, so the other colour slips through and you fall. `E` (or `/` for P2, `LB`/`RB` on a pad) switches you mid-air, and switching while you stand on a platform drops you through it. The start pad and the summit band are always solid. Same summit orb |
 | *Fall Gauntlet* | scaffold, not playable yet | — | — |
 
 The pane HUD tag reads `P1: 3_100 | Ø 4` — owner, the mode's goal glyph in
@@ -168,6 +171,16 @@ press floats you across a gap. The glyph becomes `Ô` (glider) while it lasts.
 **The players are `Ö`.** Out of the gate they are `Ö`, and when nobody touches
 them they fall asleep: after 3 s they are a small `ö` whose dots blink, then
 settle into a closed-eye `o` after ten blinks. Any input wakes them.
+
+**Match or Fall.** The climb and the summit orb are Race to 100's, but every
+climbing platform is painted in player 1's or player 2's colour, tagged in equal
+halves and shuffled so neither colour owns the long runs. A platform holds only a
+player whose glyph carries its colour; the other colour falls straight through it,
+which is the same "no platform matched" path as falling past the tower. `E` flips
+you (P2 uses `/`, the pad's `LB`/`RB`), mid-air included, so the read is: what
+colour is the next platform, and can I switch before I land. Switching while you
+stand on a platform drops you through it. The start pad and the summit band are
+never tagged, so the spawn and the orb are always reachable.
 
 **Painted glyphs, not boxes.** Every contact test — standing on a platform, riding
 the other player, being hit by a rock — uses the glyph's *painted* span, never the

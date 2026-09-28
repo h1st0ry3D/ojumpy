@@ -82,6 +82,10 @@ the same player.
 | **P2** (second pad) | left stick **or** D-pad | **A**, **B** or **X** |
 | **P2** (only one pad) | right stick | **B** or **X** |
 
+The colour switch of Match or Fall is `LB` for P1 and `RB` for P2 on every layout.
+The game this mode came from uses `X` per pad, but `B` and `X` are P2's jump here,
+so the shoulders take the role.
+
 On the keyboard the split is WASD + `Space` for P1 and arrows + `Enter` for P2
 (solo: both drive P1) — see the *Controls* table in the [README](README.md).
 
@@ -95,6 +99,8 @@ full deflection. Pushing P2's controls mid-round splits the screen.
 | **Start** | start a round from the ready screen, pause / resume while one runs |
 | **Select**, **Mode** | open or close the mode picker |
 | **R3** (click the right stick) | fullscreen, like `F` |
+| **LB** | Match or Fall: switch P1's platform colour |
+| **RB** | Match or Fall: switch P2's platform colour |
 | D-pad ↑/↓, either stick | move the picker's highlight; **A** picks |
 
 `Start` is context-sensitive, exactly like the keyboard's `Enter`: on the ready screen

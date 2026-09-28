@@ -102,7 +102,10 @@ Panel {
         { k: "P2", v: game.p2Joined
                        ? "keys ←/→ + ↑ or Enter   ·   pad 2 stick + A/B/X   ·   own camera"
                        : "not in the round — J, or a pad's P2 buttons, joins" },
-        { k: "Moves", v: "double jump: tap jump again mid-air   ·   hold jump while falling to glide (Ô)" },
+        { k: "Moves", v: "double jump: tap jump again mid-air   ·   hold jump while falling to glide (Ô)"
+                       + (game.mode.matchFall === true
+                          ? "   ·   Match or Fall: E switches you between the two platform colours"
+                            + (game.p2Joined ? " (P2: /)" : "") : "") },
         { k: "Keys", v: "R (or Enter) start   ·   P pause   ·   S stop   ·   M modes   ·   F fullscreen   ·   Esc close"
                        + "   ·   pad: Start start/pause, Select modes, R3 fullscreen" }
     ]
@@ -149,6 +152,7 @@ Panel {
     // validated: a helper's output is still input. `-u` unbuffers the lines.
     property var pad: ({p1x: 0, p1left: false, p1right: false, p1jump: false,
                         p2x: 0, p2left: false, p2right: false, p2jump: false,
+                        p1form: false, p2form: false,
                         up: false, down: false, confirm: false,
                         pause: false, menu: false, fullscreen: false,
                         connected: false, pads: 0})
@@ -165,6 +169,7 @@ Panel {
             p1right: !!d.p1right, p1jump: !!d.p1jump,
             p2x: Keys.axis(d, "p2x"), p2left: !!d.p2left,
             p2right: !!d.p2right, p2jump: !!d.p2jump,
+            p1form: !!d.p1form, p2form: !!d.p2form,
             up: !!d.up, down: !!d.down, confirm: !!d.confirm,
             pause: !!d.pause, menu: !!d.menu, fullscreen: !!d.fullscreen,
             connected: !!d.connected,
@@ -284,6 +289,8 @@ Panel {
     function p2Left() { return Keys.p2Left(root.keysDown, root.pad); }
     function p2Right() { return Keys.p2Right(root.keysDown, root.pad); }
     function p2JumpHeld() { return Keys.p2Jump(root.keysDown, root.pad); }
+    function p1FormHeld() { return Keys.p1Form(root.keysDown, root.pad, game.p2Joined); }
+    function p2FormHeld() { return Keys.p2Form(root.keysDown, root.pad); }
     function p2PadInput() { return Keys.p2PadInput(root.pad); }
 
     // ---- reload (context menu) ----
@@ -350,6 +357,9 @@ Panel {
             game.p1JumpHeld = root.p1JumpHeld();
             game.p2Vx = game.p2Joined ? ((root.p2Right() ? 1 : 0) - (root.p2Left() ? 1 : 0)) : 0;
             game.p2JumpHeld = game.p2Joined && root.p2JumpHeld();
+            // the colour switch rides the same path: the engine edge-detects it
+            game.p1FormHeld = root.p1FormHeld();
+            game.p2FormHeld = game.p2Joined && root.p2FormHeld();
             game.tick(0.016);
         }
     }

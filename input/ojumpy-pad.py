@@ -17,6 +17,8 @@ Mapping (single Xbox pad hosts both racers):
   Start (315) : pause, on any pad (rising edge)
   Select (314) / Mode (316): open/close the mode picker, on any pad
   R3 (318)    : fullscreen, on any pad (rising edge; panel must be open)
+  colour switch (Match or Fall): LB (310) = P1, RB (311) = P2. The reference
+  game uses X per pad; B and X are P2's jump here, so the shoulders take it.
 
 A second physical pad, if any, feeds P2 from its left stick + A, so two pads give
 one racer each and everything merges without config.
@@ -155,6 +157,8 @@ class PadState:
         self.a = False
         self.b = False
         self.x = False
+        self.lb = False
+        self.rb = False
         self.start = False
         self.select = False
         self.r3 = False
@@ -190,6 +194,7 @@ def merge_payload(pads, names):
     2+ pads: pad0 drives P1, pad1 drives P2 — each with its own left stick,
     D-pad and A/B/X buttons. 1 pad only: left stick/D-pad/A = P1,
     right stick/B/X = P2 (single-pad party mode).
+    The Match or Fall colour switch is LB for P1 and RB for P2, on every layout.
     Start/Select/Mode on ANY pad starts the round.
     """
     if not pads:
@@ -212,6 +217,8 @@ def merge_payload(pads, names):
         "p2left": bool(p2x < -0.35),
         "p2right": bool(p2x > 0.35),
         "p2jump": p2jump,
+        "p1form": bool(first.lb),
+        "p2form": bool(second.rb if len(pads) >= 2 else first.rb),
         # Start pauses; Select/Mode opens the mode picker (Panel decides)
         "pause": bool(any(s.start for s in pads)),
         "menu": bool(any(s.select for s in pads)),
@@ -255,6 +262,10 @@ def apply_event(state, etype, code, value):
             state.b = pressed
         elif code in (BTN_WEST, BTN_NORTH):
             state.x = pressed
+        elif code == BTN_TL:
+            state.lb = pressed
+        elif code == BTN_TR:
+            state.rb = pressed
         elif code == BTN_START:
             state.start = pressed
         elif code in (BTN_SELECT, BTN_MODE):
@@ -274,6 +285,7 @@ def apply_event(state, etype, code, value):
 def disconnected():
     return {"p1x": 0.0, "p1left": False, "p1right": False, "p1jump": False,
             "p2x": 0.0, "p2left": False, "p2right": False, "p2jump": False,
+            "p1form": False, "p2form": False,
             "up": False, "down": False, "confirm": False,
             "pause": False, "menu": False, "fullscreen": False,
             "connected": False, "pads": 0, "names": []}

@@ -26,10 +26,20 @@ Item {
     required property real uiScale
     required property int selfIdx     // pane owner: 0 = P1, 1 = P2
 
-    readonly property color selfColor: view.selfIdx === 0 ? view.p1Color : view.p2Color
-    // start pad and finish line share one colour; the rest is graded by size
+    // Match or Fall: a tagged platform wears player 1's or player 2's colour, and
+    // a player wears the colour of their current form (form 0 = p1Color,
+    // form 1 = p2Color). Outside that mode a player is always in their own
+    // colour, so this is the identity mapping.
+    function formColor(form) { return form === 1 ? view.p2Color : view.p1Color; }
+    readonly property color selfColor: view.formColor(view.engine.mode.matchFall === true
+                                     ? (view.selfIdx === 0 ? view.engine.p1Form
+                                                           : view.engine.p2Form)
+                                     : view.selfIdx)
+    // start pad and finish line share one colour; the rest is graded by size, or
+    // by form in Match or Fall
     function platColor(plat) {
         if (plat.idx === 0 || plat.idx === view.engine.platCount - 1) return view.edgeColor;
+        if (plat.form !== undefined) return view.formColor(plat.form);
         return view.platColors[plat.sizeClass] || view.platColors[0];
     }
     readonly property bool isSelf: view.selfIdx === 0
@@ -446,7 +456,7 @@ Item {
                     width: playerItem.glyphW
                     horizontalAlignment: Text.AlignHCenter
                     text: view.deathGlyph
-                    color: playerItem.isP1 ? view.p1Color : view.p2Color
+                    color: playerItem.baseColor
                     opacity: 0.45 * (1 - age / (2 * view.engine.ghostMax))
                     font.family: "monospace"
                     font.pixelSize: 20 * view.scaleY
@@ -530,7 +540,12 @@ Item {
                     collectAnim.restart();
                 }
             }
-            readonly property color baseColor: playerItem.isP1 ? view.p1Color : view.p2Color
+            // the glyph wears the colour of the platform it can stand on, so in
+            // Match or Fall it follows the form and elsewhere it is the player's own
+            readonly property color baseColor: view.formColor(
+                view.engine.mode.matchFall === true
+                    ? (playerItem.isP1 ? view.engine.p1Form : view.engine.p2Form)
+                    : playerItem.index)
             readonly property bool shielded: isP1 ? view.engine.p1Bold : view.engine.p2Bold
             // the player who touched the orb draws at the orb's font size; this
             // delegate reads fontPx throughout, so the painted feet stay put

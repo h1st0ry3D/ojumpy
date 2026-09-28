@@ -72,7 +72,10 @@ Item {
     // ---- mode ----
     property string modeId: "race"
     readonly property var mode: Modes.get(modeId)
-    onModeIdChanged: if (!Modes.isReady(modeId)) modeId = "race"
+    onModeIdChanged: {
+        if (!Modes.isReady(modeId)) { modeId = "race"; return; }
+        _applyModeForms();     // the mode picker can switch modes mid-round
+    }
 
     // best clear time per mode (ms). Persistence lives in the panel (bestFile).
     property var bestByMode: ({})
@@ -111,6 +114,16 @@ Item {
     property real p1vy: 0
     property bool p1ground: true
     property int p1Plat: 0
+    // Match or Fall: which player colour this glyph wears (0 = player 1's, 1 =
+    // player 2's). Only the match-or-fall mode reads it; every other mode leaves
+    // a player in their own colour and never gates a platform.
+    property int p1Form: 0
+    property int p2Form: 0
+    // the switch key's rising edge, pushed by the view like the jump
+    property bool p1FormHeld: false
+    property bool p2FormHeld: false
+    property bool p1FormWas: false
+    property bool p2FormWas: false
     // seconds until this player's next footstep (see stepInterval)
     property real p1StepT: 0
     property real p2x: 120
@@ -415,6 +428,77 @@ Item {
         return Course.build(courseConfig, roundSeed);
     }
 
+    // ---- Match or Fall: colour-tag the climbing platforms ----
+    // The tags go on in equal halves and are then shuffled, the fair assignment
+    // the reference game uses: a coin flip per platform lets one colour end up
+    // owning the long runs, and the climb would then be a colour, not a read.
+    // The start pad and the summit band stay untagged (form undefined), which is
+    // what makes them solid for both players.
+    //
+    // Its own LCG, seeded apart from hazSeed, so tagging cannot shift a round's
+    // rock pattern.
+    property real formSeed: 1
+    function _formRand() {
+        formSeed = ((formSeed * 1664525 + 1013904223) >>> 0);
+        return formSeed / 4294967296;
+    }
+
+    function _tagPlatformForms() {
+        var n = platforms.length;
+        if (n < 3) return;
+        var flags = [];
+        var zeros = Math.floor((n - 2) / 2);
+        for (var i = 0; i < n - 2; i++) flags.push(i < zeros ? 0 : 1);
+        for (var j = flags.length - 1; j > 0; j--) {         // Fisher-Yates
+            var k = Math.floor(_formRand() * (j + 1));
+            var t = flags[j];
+            flags[j] = flags[k];
+            flags[k] = t;
+        }
+        var list = platforms.slice();
+        for (var p = 1; p < n - 1; p++) {
+            var plat = list[p];
+            plat.form = flags[p - 1];
+            list[p] = plat;
+        }
+        platforms = list;
+    }
+
+    // Tag or untag for the current mode, so a switch from the mode picker lands
+    // the tags (or drops them) without waiting for the next round.
+    //
+    // Modes.get(modeId), not the `mode` binding: this runs from
+    // onModeIdChanged, and a binding read there is still the previous mode.
+    function _applyModeForms() {
+        if (platforms.length < 3) return;
+        if (Modes.get(modeId).matchFall === true) { _tagPlatformForms(); return; }
+        var list = platforms.slice();
+        var changed = false;
+        for (var p = 0; p < list.length; p++) {
+            if (list[p].form !== undefined) {
+                delete list[p].form;
+                list[p] = Object.assign({}, list[p]);
+                changed = true;
+            }
+        }
+        if (changed) platforms = list;
+    }
+
+    // Does this platform hold this player? Untagged platforms (start pad, summit)
+    // and every platform outside the match-or-fall mode always hold.
+    function _platformHolds(plat, form) {
+        return plat.form === undefined || plat.form === form;
+    }
+
+    // Flip a player's colour. No-op outside the mode, and on a player who is not
+    // in the round (a form for player 2 is reset with the rest of that player's
+    // state on a join). The lookup is explicit for the same reason as in
+    // _applyModeForms: this can run inside a mode-change notification.
+    function toggleForm(idx) {
+        if (Modes.get(modeId).matchFall !== true) return;
+        if (idx === 0) p1Form = p1Form ? 0 : 1; else p2Form = p2Form ? 0 : 1;
+    }
+
     function startRound(seed) {
         roundSeed = (seed !== undefined && seed) ? seed : ((Date.now() % 2147483647) || 12345);
         platforms = buildPlatforms();
@@ -422,6 +506,11 @@ Item {
         clearHazards();
         clearPowerups();
         hazSeed = ((roundSeed ^ 0x9e3779b9) >>> 0) || 1;
+        formSeed = ((roundSeed ^ 0x85ebca6b) >>> 0) || 1;
+        // a round always starts with both players in the primary colour
+        p1Form = 0; p2Form = 0;
+        p1FormWas = false; p2FormWas = false;
+        _applyModeForms();
         var s = platforms[0];
         p1x = s.x + 18; p1y = s.y - playerH; p1vy = 0; p1ground = true; p1done = false; p1Jumps = 0; p1JumpWas = false;
         p1Plat = 0;
@@ -473,6 +562,7 @@ Item {
         p1x = s.x + 18; p1y = s.y - playerH; p1vy = 0; p1ground = true; p1done = false; p1Jumps = 0; p1JumpWas = false;
         p1Plat = 0;
         p1StepT = 0;
+        p1Form = 0; p1FormWas = false;
         falls1 = 0;
         p1Gliding = false;
         p1GhostX = []; p1GhostY = []; p1GhostSeq = []; p1GhostDeaths = 0;
@@ -490,6 +580,7 @@ Item {
         p2x = s.x + s.w - 32; p2y = s.y - playerH; p2vy = 0; p2ground = true;
         p2done = false; p2Jumps = 0; p2JumpWas = p2JumpHeld; p2Plat = 0;
         p2StepT = 0;
+        p2Form = 0; p2FormWas = false;
         sideTouching = false; hitCd = 0;
         p2Gliding = false;
         _resetPowerupSlot(1);
@@ -967,6 +1058,13 @@ Item {
         var wasGround = isP1 ? p1ground : p2ground;   // grounded before this tick
         var pressed = jump && !was;
 
+        // the colour switch is a rising edge like the jump, and it lands before the
+        // movement: a switch made in mid-air must already count for the landing
+        // test further down this same tick
+        var formNow = isP1 ? p1FormHeld : p2FormHeld;
+        var formWas = isP1 ? p1FormWas : p2FormWas;
+        if (formNow && !formWas) toggleForm(idx);
+
         x = _clampX(x + vx * moveSpeed * dt);
 
         if (pressed) {
@@ -992,9 +1090,15 @@ Item {
         ground = false;
 
         var plats = platforms;
+        // Match or Fall: this player's colour, and whether the mode gates the
+        // course at all. A platform of the other colour is skipped entirely, so
+        // the fall through it is the ordinary "no platform matched" path.
+        var gated = mode.matchFall === true;
+        var myForm = gated ? (isP1 ? p1Form : p2Form) : 0;
         if (vy >= 0) {
             for (var i = 0; i < plats.length; i++) {
                 var p = plats[i];
+                if (gated && !_platformHolds(p, myForm)) continue;
                 var top = p.y;
                 if (prevFeet <= top + 5 && feet >= top - 4
                         && x + 12 >= p.x - 6 && x + 2 <= p.x + p.w + 6) {
@@ -1066,9 +1170,11 @@ Item {
         if (isP1) {
             p1x = x; p1y = y; p1vy = vy; p1ground = ground; p1Jumps = jumps;
             p1JumpWas = jump; p1Gliding = airGlide; p1StepT = stepT; p1Idle = idle;
+            p1FormWas = formNow;
         } else {
             p2x = x; p2y = y; p2vy = vy; p2ground = ground; p2Jumps = jumps;
             p2JumpWas = jump; p2Gliding = airGlide; p2StepT = stepT; p2Idle = idle;
+            p2FormWas = formNow;
         }
     }
 

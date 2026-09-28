@@ -109,6 +109,34 @@ var GLYPHS = {
     onTick: function () {}
 };
 
+// --- Match or Fall: your colour is the platform's colour ----------------------
+// The same climb and the same summit orb as Race to 100, with every climbing
+// platform tagged 0 or 1: tag 0 is player 1's colour, tag 1 player 2's. A
+// platform only holds the player whose colour it carries, so the other colour
+// falls straight through it, and each player picks their colour with the switch
+// key (E, or the pad's X in the reference game; here LB for player 1 and RB for
+// player 2, because this plugin already spends B and X on player 2's jump).
+//
+// The tags are assigned in equal halves and shuffled, the same fair assignment
+// the reference game uses: a plain coin flip per platform would let one colour
+// run away with the long stretches. The start pad and the summit band carry no
+// tag and are always solid, so there is always a safe spawn and a reachable orb.
+//
+// Switching while you stand on a platform drops you through it, which is the
+// whole risk of the mode.
+var MATCHFALL = {
+    id: "matchfall",
+    name: "Match or Fall",
+    tagline: "Climb to 100 on platforms of your colour — E switches you to the other one",
+    tagGlyph: "~",
+    ready: true,
+    tracksBest: true,
+    goalIndex: 100,
+    matchFall: true,      // platforms are colour-tagged; only your colour holds
+    onFall: function () { return false; },
+    onTick: function () {}
+};
+
 var FALLS = {
     id: "fallgauntlet",
     name: "Fall Gauntlet",
@@ -123,7 +151,7 @@ var FALLS = {
     onTick: function () {}
 };
 
-var ALL = [RACE, ASTERISKS, GLYPHS, FALLS];
+var ALL = [RACE, ASTERISKS, GLYPHS, MATCHFALL, FALLS];
 
 function list() {
     return ALL;
