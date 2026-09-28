@@ -120,7 +120,9 @@ var GLYPHS = {
 // The tags are assigned in equal halves and shuffled, the same fair assignment
 // the reference game uses: a plain coin flip per platform would let one colour
 // run away with the long stretches. The start pad and the summit band carry no
-// tag and are always solid, so there is always a safe spawn and a reachable orb.
+// tag and are always solid, so there is always a safe spawn and a reachable orb;
+// the view paints them in the colour of the player looking at them, so they read
+// as part of the mode without ever dropping anyone.
 //
 // Switching while you stand on a platform drops you through it, which is the
 // whole risk of the mode.

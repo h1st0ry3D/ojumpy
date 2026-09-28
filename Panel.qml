@@ -105,7 +105,7 @@ Panel {
         { k: "Moves", v: "double jump: tap jump again mid-air   ·   hold jump while falling to glide (Ô)"
                        + (game.mode.matchFall === true
                           ? "   ·   Match or Fall: E switches you between the two platform colours"
-                            + (game.p2Joined ? " (P2: /)" : "") : "") },
+                            + (game.p2Joined ? " (P2: .)" : "") : "") },
         { k: "Keys", v: "R (or Enter) start   ·   P pause   ·   S stop   ·   M modes   ·   F fullscreen   ·   Esc close"
                        + "   ·   pad: Start start/pause, Select modes, R3 fullscreen" }
     ]

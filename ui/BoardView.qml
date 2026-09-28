@@ -31,14 +31,20 @@ Item {
     // form 1 = p2Color). Outside that mode a player is always in their own
     // colour, so this is the identity mapping.
     function formColor(form) { return form === 1 ? view.p2Color : view.p1Color; }
-    readonly property color selfColor: view.formColor(view.engine.mode.matchFall === true
+    // the form this pane's own player is wearing
+    readonly property int selfForm: view.engine.mode.matchFall === true
                                      ? (view.selfIdx === 0 ? view.engine.p1Form
                                                            : view.engine.p2Form)
-                                     : view.selfIdx)
-    // start pad and finish line share one colour; the rest is graded by size, or
-    // by form in Match or Fall
+                                     : view.selfIdx
+    readonly property color selfColor: view.formColor(view.selfForm)
+    // Start pad and summit band are never tagged, so they hold either colour and
+    // stay a safe spawn and a reachable orb. In Match or Fall they still follow
+    // the mode: each wears the colour of the player looking at it, which is the
+    // colour that holds it. The rest is graded by size, or by form where tagged.
     function platColor(plat) {
-        if (plat.idx === 0 || plat.idx === view.engine.platCount - 1) return view.edgeColor;
+        if (plat.idx === 0 || plat.idx === view.engine.platCount - 1)
+            return view.engine.mode.matchFall === true
+                    ? view.formColor(view.selfForm) : view.edgeColor;
         if (plat.form !== undefined) return view.formColor(plat.form);
         return view.platColors[plat.sizeClass] || view.platColors[0];
     }
