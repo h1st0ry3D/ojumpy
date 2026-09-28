@@ -58,10 +58,20 @@ Item {
     // A dozing player blinks this many times, then stops: the eyes stay shut
     // (a steady `o`), which reads as "asleep" instead of "malfunctioning".
     readonly property int idleBlinks: 10
-    // the mode's hazard glyph (Asterisk Attack's rock) — measured like the rest
-    // of the text art, so a rock's ink box is its collision box
-    readonly property string hazardGlyph: view.engine.mode.hazard
-                                          ? view.engine.mode.hazard.glyph : "*"
+    // Every character the mode can drop, measured — like the rest of the text art,
+    // so a drop's ink box is its collision box. One glyph in Asterisk Attack, one
+    // per size class in the collect modes (`$`, `&`, `#`) plus that mode's
+    // fallback character, so an out-of-range class still has metrics to draw with.
+    // Rebuilt on a mode switch, which re-runs the measurement once.
+    readonly property var hazardGlyphs: view.hazardGlyphList()
+    function hazardGlyphList() {
+        var h = view.engine.mode.hazard;
+        if (!h) return ["*"];
+        var list = h.glyphs ? h.glyphs.slice(0) : [];
+        if (h.glyph && list.indexOf(h.glyph) < 0) list.push(h.glyph);
+        if (list.length === 0) list.push("*");
+        return list;
+    }
     // How far a footstep dips the player glyph: the walk wobble scales the
     // glyph down to this and springs it back (the terminal reading of a
     // body squash-and-stretch, same 80/120 ms timings). Uniform, not the game's
@@ -74,7 +84,7 @@ Item {
         platformGlyphs: view.engine.glyphs.concat([view.engine.finishGlyph])
         playerGlyphs: [view.playerGlyph, view.glideGlyph, view.deathGlyph, view.landingGlyph,
                        view.idleGlyph, view.blinkGlyph]
-        hazardGlyphs: [view.hazardGlyph]
+        hazardGlyphs: view.hazardGlyphs
         orbGlyphs: [view.orbGlyph]
     }
 
@@ -250,12 +260,16 @@ Item {
         }
     }
 
-    // ---- hazards: the mode's falling rocks (Asterisk Attack) ----
+    // ---- hazards: the mode's falling rocks (Asterisk Attack) and collectible
+    // glyphs (Glyph Hunt) ----
     // Constant model (the pool's slot count), like the ghost row, so a spawn
     // never recreates a delegate — only bindings change. The mode's size class
-    // is the rock's ink *width*, so the font size is derived from the measured
-    // ink ratio and the ink box is placed exactly on the simulated centre; the
-    // colours are the platform palette's, by size class, as asked.
+    // is the glyph's ink *width*, so the font size is derived from the measured
+    // ink ratio of the character *this slot* draws and the ink box is placed
+    // exactly on the simulated centre. Colour follows the mode: a collect mode
+    // paints each drop in the one player's colour it was stamped with (player 1
+    // or player 2, never a third ink — the same rule the pickup uses), the
+    // hazard modes paint the platform palette by size class.
     Repeater {
         model: view.engine.hazardMax
         delegate: Text {
@@ -263,18 +277,26 @@ Item {
             required property int index
             readonly property int sz: view.engine.hazardSizeAt(index)
             readonly property var hazard: view.engine.mode.hazard
+            // one character per size class in the collect modes, the single rock
+            // character in Asterisk Attack
+            readonly property string glyph: view.engine.hazardGlyphAt(index)
+            // which player's colour this drop belongs to (-1 = not a collect mode)
+            readonly property int team: view.engine.hazardTeamAt(index)
+            readonly property color paint: (hazard && hazard.teams)
+                ? (team === 0 ? view.p1Color : view.p2Color)
+                : (view.platColors[sz] || view.platColors[0])
             readonly property real boxW: (sz >= 0 && hazard) ? hazard.sizes[sz] : 0
             readonly property real fontPx: boxW
-                / Math.max(0.05, ink.hazardInkWidthRatio[view.hazardGlyph] || 0.6)
+                / Math.max(0.05, ink.hazardInkWidthRatio[glyph] || 0.6)
             readonly property real sx: (view.engine.hazardXAt(index) - view.camX) * view.scaleX
             readonly property real sy: (view.engine.hazardYAt(index) - view.camY) * view.scaleY
             visible: sz >= 0 && sy > -40 && sy < view.height + 40
                      && sx > -40 && sx < view.width + 40
-            width: ink.hazardInkWidthPx(view.hazardGlyph, fontPx)
-            x: sx - boxW / 2 - ink.hazardInkLeftPx(view.hazardGlyph, fontPx)
-            y: sy - ink.hazardInkCenterPx(view.hazardGlyph, fontPx)
-            text: view.hazardGlyph
-            color: view.platColors[sz] || view.platColors[0]
+            width: ink.hazardInkWidthPx(glyph, fontPx)
+            x: sx - boxW / 2 - ink.hazardInkLeftPx(glyph, fontPx)
+            y: sy - ink.hazardInkCenterPx(glyph, fontPx)
+            text: glyph
+            color: paint
             font.family: "monospace"
             font.pixelSize: fontPx
             font.features: ink.artFontFeatures
@@ -647,7 +669,7 @@ Item {
             // Who this pane belongs to, what the mode's goal looks like, and how
             // far along that player is: `P1: 3_100 | Ø 4`. The middle segment
             // is the mode's own tag glyph (`~`, the start pad's character, in the
-            // racing modes; the biggest collectible in Glyph Hunt) followed by either the
+            // racing modes; `$`, the richest collectible in Glyph Hunt) followed by either the
             // platform count in the bar label's `N_target` form or, in the collect
             // modes, the points — `P1 | $ 3_10`. Deaths are counted with the ghost
             // glyph, so the marker and the counter read as one thing; the segment

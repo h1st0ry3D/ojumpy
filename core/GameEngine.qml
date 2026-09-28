@@ -250,9 +250,21 @@ Item {
         return (cfg.glyphs && cfg.glyphs[sz] !== undefined) ? cfg.glyphs[sz] : cfg.glyph;
     }
 
+    // Which player's colour a slot was stamped with, 0 or 1 (-1 = none). The
+    // view paints a collect mode's drops in exactly this colour, so the drop and
+    // the pickup rule are read from one field.
     function hazardTeamAt(slot) {
         var t = hazTeam[slot];
         return (t === 0 || t === 1) ? t : -1;
+    }
+
+    // What one catch of a size class is worth (Glyph Hunt). 1 by default, so a
+    // mode that only counts catches needs no `points` list.
+    function hazardPointsAt(sz) {
+        var cfg = mode.hazard;
+        if (!cfg || !cfg.points) return 1;
+        var p = cfg.points[sz];
+        return p === undefined ? 1 : p;
     }
 
     function hazardCount() {
@@ -399,8 +411,9 @@ Item {
     property real p2Idle: 0
 
     // Glyph Hunt (hazard.teams): every falling glyph is stamped with one
-    // player's colour at spawn, and touching it scores for that player (+1) or
-    // costs the other one (-1, floored at zero). Nothing here kills.
+    // player's colour at spawn and the view paints it in that colour. Catching
+    // your own scores the size class's points; the other player's colour kills
+    // you on the spot (see _hazCollect).
     property int p1Score: 0
     property int p2Score: 0
     property var hazTeam: []
@@ -570,9 +583,9 @@ Item {
         orbWinner = -1;
     }
 
-    // Glyph Hunt pickup: the glyph is worth a point to the player whose colour it
-    // carries, and kills the player it does not belong to. Reaching the target
-    // ends the round with the same win path as the orb.
+    // Glyph Hunt pickup: the glyph is worth its size class's points to the player
+    // whose colour it carries, and kills the player it does not belong to.
+    // Reaching the target ends the round with the same win path as the orb.
     function _hazCollect(idx, slot) {
         var mine = hazTeam[slot] === idx;
         if (!mine) {
@@ -584,11 +597,23 @@ Item {
             _crush(idx);
             return;
         }
-        if (idx === 0) p1Score++; else p2Score++;
+        var pts = _hazPoints(idx, hazardSizeAt(slot));
+        if (idx === 0) p1Score += pts; else p2Score += pts;
         collected(idx, true);
         var target = Modes.get(modeId).hazard.target || 0;
         if (target > 0 && (idx === 0 ? p1Score : p2Score) >= target)
             declareWin(idx, elapsed);
+    }
+
+    // The winning catch is worth only what is still missing, so the score lands
+    // on the target instead of stepping over it (a 3-point `$` taken on 9 would
+    // leave the HUD reading 12_10).
+    function _hazPoints(idx, sz) {
+        var pts = hazardPointsAt(sz);
+        var target = Modes.get(modeId).hazard.target || 0;
+        if (target <= 0) return pts;
+        var have = idx === 0 ? p1Score : p2Score;
+        return Math.max(0, Math.min(pts, target - have));
     }
 
     function _stepOrb() {

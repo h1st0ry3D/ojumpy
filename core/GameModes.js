@@ -77,27 +77,35 @@ var ASTERISKS = {
 // glyph per gap, bouncing off the arena walls — and the glyphs *are* the score.
 // Every gap drops a matched pair: both players get the same size class in their
 // own colour, at independent positions, so neither is ever offered a worse round
-// than the other. Take yours: +1 point and a bing. Touch theirs: it hits like a
-// body shove (the same bump cue) and kills you on the spot — ghost marker where
-// it happened, back to platform 0. First to `target` wins.
+// than the other. A drop is painted in player 1's or player 2's colour and in no
+// other, so which one is yours is never a guess. Take yours and it scores; touch
+// theirs and it hits like a body shove (the same bump cue) and kills you on the
+// spot — ghost marker where it happened, back to platform 0. First to `target`
+// wins.
+//
+// The size class is the value: the small `$` is the richest catch and the large
+// `#` the cheapest, so the biggest thing in the sky is also the least tempting
+// one and a gap is a real choice of what to wait for.
 //
 // Tunables (base units, seconds) — the rock knobs, plus:
 //   glyphs    one character per size class (small, middle, large)
+//   points    what one catch of each size class is worth
 //   teams     true = colour each drop for one player and score on touch
 //   target    points needed to win
 // In solo play every glyph is player 1's, so the mode still works alone.
 var GLYPHS = {
     id: "glyphhunt",
     name: "Glyph Hunt",
-    tagline: "Catch 10 glyphs of your own colour — the other player's kills",
-    tagGlyph: "$",                  // the biggest kind of prey
+    tagline: "Reach 10 points: $ 3 · & 2 · # 1 — the other colour kills",
+    tagGlyph: "$",                  // the richest catch: the small size class
     ready: true,
     tracksBest: true,
     goalIndex: 100,
     orb: false,                     // no summit orb here: the glyphs are the goal
     hazard: {
-        glyph: "$",                 // the size-2 character (single-glyph modes use it)
-        glyphs: ["§", "#", "$"],    // size classes: small, middle, large
+        glyph: "$",                 // fallback for a class without its own char
+        glyphs: ["$", "&", "#"],    // size classes: small, middle, large
+        points: [3, 2, 1],          // …and what one catch of each is worth
         sizes: [8, 14, 20],
         // calmer than Asterisk Attack on purpose: there the sky is a hazard to
         // dodge, here it is the thing you have to intercept
