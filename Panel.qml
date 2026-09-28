@@ -419,5 +419,6 @@ Panel {
         game: game
         panel: root
         dropdown: dropdown
+        sfx: sfx
     }
 }

@@ -15,6 +15,7 @@ Item {
     required property var game        // GameEngine
     required property var panel       // Panel root
     required property var dropdown    // GamePanel instance
+    required property var sfx         // Sfx: which playback path is live
 
     IpcHandler {
         target: "ojumpy.debug"
@@ -73,6 +74,9 @@ Item {
                 score: [g.p1Score, g.p2Score], target: g.scoreTarget,
                 idle: [Math.round(g.p1Idle * 10) / 10, Math.round(g.p2Idle * 10) / 10],
                 ghosts: [g.ghostCount(0), g.ghostCount(1)],
+                sound: [debugIpc.sfx.lastPath, debugIpc.sfx.lastCommand,
+                        debugIpc.sfx.voices ? debugIpc.sfx.voices.ready : false,
+                        debugIpc.sfx.voices ? debugIpc.sfx.voices.plays : 0],
                 pad: p.pad && p.pad.connected, green: p.themeGreen});
         }
 

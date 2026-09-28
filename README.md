@@ -247,7 +247,7 @@ the room left over rather than pushing the panel past the bottom edge.
 ## Debug IPC
 
 ```bash
-omarchy-shell ojumpy.debug state          # live state (players, cameras, hazards, orb)
+omarchy-shell ojumpy.debug state          # live state (players, cameras, hazards, orb, sound path)
 omarchy-shell ojumpy.debug dims           # scale diagnostics
 omarchy-shell ojumpy.debug modes          # mode registry
 omarchy-shell ojumpy.debug course         # generated course (idx, x, y, w, kind, glyph)
@@ -283,13 +283,19 @@ not ours: the shell gives every plugin panel an `open`/`close`/`toggle` of its o
   the committed `audio/sfx/` WAVs — run `python3 -B audio/ojumpy-sfx.py` to
   re-render them after tuning the table at the top (the committed files are
   byte-identical to a fresh run).
-- **Sound playback** hands one of those WAVs to the first of `/usr/bin/pw-play`,
-  `/usr/bin/paplay`, `/usr/bin/aplay` that exists — absolute paths, one process per
-  cue, four recycled voices. `step` while walking, `land` on landing, `jump` on
-  every jump, `bump` on shoves (and on a shield absorbing a rock), `bing` for a
-  correct Glyph Hunt catch, `orb` when the summit orb is touched, and `hit` on
-  every death: a rock in Asterisk Attack, the other player's colour in Glyph
-  Hunt, or a fall off the bottom of the tower in any mode.
+- **Sound playback** is in memory: `audio/SfxVoice.qml` holds one `SoundEffect`
+  per committed WAV, loaded once, and a cue is a `play()` call. That matters for
+  timing: a `pw-play` invocation spends about 100 ms spawning and opening a
+  PipeWire connection before the first sample, which is most of the delay on a
+  death cue. `step` while walking, `land` on landing, `jump` on every jump, `bump`
+  on shoves (and on a shield absorbing a rock), `bing` for a correct Glyph Hunt
+  catch, `orb` when the summit orb is touched, and `hit` on every death: a rock in
+  Asterisk Attack, the other player's colour in Glyph Hunt, or a fall off the
+  bottom of the tower in any mode.
+- If `QtMultimedia` is missing, or the pool never finishes decoding, `Sfx.qml`
+  falls back to handing the file to the first of `/usr/bin/pw-play`,
+  `/usr/bin/paplay`, `/usr/bin/aplay` that exists, one process per cue over four
+  recycled voices. `sfx.lastPath` says which path is live.
 - Every text item is pinned with `textFormat: Text.PlainText`, and the few strings
   that go into shell-rendered tooltips are flattened and capped first (`ui/Plain.js`).
 
