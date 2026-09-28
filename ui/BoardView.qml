@@ -4,14 +4,12 @@ import qs.Commons
 // Ojumpy viewport — one pane, one camera.
 //
 // The engine simulates in base units (440x500); a BoardView renders that world
-// through a single camera (camX/camY = world coords at the pane's top-left
-// corner), so the pane shows exactly view.width/scaleX by view.height/scaleY
-// world units. GameBoard uses one BoardView for solo play and two side-by-side
-// once player 2 joins, which is what gives each player an independent camera.
+// through one camera (camX/camY = world coords at the pane's top-left corner), so
+// the pane shows view.width/scaleX by view.height/scaleY world units.
 //
-// Both glyphs render in every pane (P2 only once joined), so each player sees
-// the other. A player outside the pane is pinned to the pane edge, dimmed and
-// marked with a ▲▼◀▶ caret. Read-only over the engine: no game logic here.
+// Both glyphs render in every pane (P2 only once joined), so each player sees the
+// other. A player outside the pane is pinned to the pane edge, dimmed and marked
+// with a ▲▼◀▶ caret. Read-only over the engine: no game logic here.
 
 Item {
     id: view
@@ -39,30 +37,22 @@ Item {
     readonly property int selfFalls: view.isSelf ? view.engine.falls1 : view.engine.falls2
 
     // ---- glyph ink metrics ----
-    // GlyphMetrics.qml owns the TextMetrics probes, the ink ratios and the
-    // lookup helpers (see that file for why the numbers are what they are).
-    // What the view declares here is *which* glyphs to measure: every platform
-    // pattern plus the finish band, and the four player glyphs.
+    // GlyphMetrics.qml owns the probes, the ink ratios and the lookup helpers.
     readonly property string playerGlyph: "Ö"
     readonly property string glideGlyph: "Ô"   // O with a circumflex: the glider
     readonly property string deathGlyph: "Ø"   // crossed O: a death marker
-    // Landing impact: the glyph drops to the plain `o` for a moment — the eyes
-    // shut on touchdown, so a landing reads as a blink rather than as a different
-    // letter (the same `o` the idle blink closes into).
+    // Landing impact: the glyph drops to the plain `o` for a moment, the same glyph
+    // the idle blink closes into.
     readonly property string landingGlyph: "o"
-    // Idle: after `idleSeconds` without moving, a player is drawn as a small ö
-    // whose dots blink — `blinkGlyph` is the plain o the eyes vanish into.
+    // Idle: after `idleSeconds` without moving, a small ö with blinking dots;
+    // `blinkGlyph` is the plain o.
     readonly property string idleGlyph: "ö"
     readonly property string blinkGlyph: "o"
     readonly property real idleSeconds: 3
-    // A dozing player blinks this many times, then stops: the eyes stay shut
-    // (a steady `o`), which reads as "asleep" instead of "malfunctioning".
     readonly property int idleBlinks: 10
-    // Every character the mode can drop, measured — like the rest of the text art,
-    // so a drop's ink box is its collision box. One glyph in Asterisk Attack, one
-    // per size class in the collect modes (`$`, `&`, `#`) plus that mode's
-    // fallback character, so an out-of-range class still has metrics to draw with.
-    // Rebuilt on a mode switch, which re-runs the measurement once.
+    // Every character the mode can drop, measured so a drop's ink box is its
+    // collision box: the mode's size-class glyphs plus its fallback character, so
+    // an out-of-range class still has metrics to draw with.
     readonly property var hazardGlyphs: view.hazardGlyphList()
     function hazardGlyphList() {
         var h = view.engine.mode.hazard;
@@ -72,10 +62,8 @@ Item {
         if (list.length === 0) list.push("*");
         return list;
     }
-    // How far a footstep dips the player glyph: the walk wobble scales the
-    // glyph down to this and springs it back (the terminal reading of a
-    // body squash-and-stretch, same 80/120 ms timings). Uniform, not the game's
-    // wider/shorter squash: a smaller glyph reads as a bob.
+    // How far a footstep dips the player glyph: the walk wobble scales the glyph
+    // down to this and springs it back, 80/120 ms.
     readonly property real stepSquash: 0.78
 
 
@@ -88,48 +76,38 @@ Item {
         orbGlyphs: [view.orbGlyph]
     }
 
-    // Advance of one character of a platform art, in font-size units — the
-    // ripple grid steps by this. 0.6 em is the monospace advance the engine
-    // sizes every platform with (see GameEngine.platCharW).
+    // Character advance of platform art in font-size units, the ripple grid's step.
+    // 0.6 em is the monospace advance the engine sizes every platform with
+    // (GameEngine.platCharW).
     readonly property real charAdvanceRatio: 0.6
 
-    // Fullscreen can stretch the arena horizontally (scaleX != scaleY): the
-    // engine's collision boxes use scaleX while text glyphs are sized from
-    // scaleY, so world-space art is stretched by this factor to keep the painted
-    // platform exactly as wide as the box it collides with. In the normal view
-    // it is 1.
+    // Fullscreen can stretch the arena horizontally (scaleX != scaleY): collision
+    // boxes use scaleX while glyphs are sized from scaleY, so art is stretched by
+    // this to keep the painted platform as wide as its box. 1 in the normal view.
     readonly property real stretchX: view.scaleX / Math.max(0.0001, view.scaleY)
 
     readonly property real playerFontPx: 20 * view.scaleY
 
     // ---- finish orb ----
-    // A filled circle hovering over the summit's centre, breathing between two
-    // fixed colours — dark orange and light yellow — that do not come from the
-    // theme: the goal has to read as the goal whatever palette the bar wears.
     readonly property string orbGlyph: "●"
     readonly property color orbDark: "#FF8C00"    // dark orange, at the low pulse
     readonly property color orbLight: "#FFFFE0"   // light yellow, at the high one
-    // The engine owns the pulse (so the paint is exactly the hitbox); here it
-    // just becomes a colour. Not a mix towards white: a real two-colour ramp,
-    // which is what makes the glow legible from far away.
+    // The engine owns the pulse, so the paint matches the hitbox.
     function orbRamp(t) {
         return Qt.rgba(view.orbDark.r + (view.orbLight.r - view.orbDark.r) * t,
                        view.orbDark.g + (view.orbLight.g - view.orbDark.g) * t,
                        view.orbDark.b + (view.orbLight.b - view.orbDark.b) * t, 1.0)
     }
-    // the engine fixes the radius, so the font size follows from the measured
-    // ink height: a circle drawn exactly orbRNow wide, pulse included
+    // the engine fixes the radius, so the font size follows the ink height
     readonly property real orbFontPx: 2 * view.engine.orbRNow
         / Math.max(0.3, ink.orbInkHeightRatio[view.orbGlyph] || 0.7) * view.scaleY
     // 1 -> 0 over the engine's 0.18 s shrink once the orb is taken
     property real orbScale: 1.0
-    // true once the shrink has finished (the shrink animates through the take,
-    // so the orb stays drawn for those 180 ms)
+    // set when the 180 ms shrink finishes, so the orb stays drawn through the take
     property bool orbGone: false
     readonly property bool orbVisible: !view.orbGone && view.engine.orbActive
         && (view.engine.roundActive || view.engine.orbTaken)
 
-    // the orb shrinks to nothing on pickup
     NumberAnimation {
         id: orbShrink
         target: view
@@ -151,10 +129,8 @@ Item {
     }
 
     // ---- bump glow ----
-    // A hit lights both glyphs in a brighter shade of their own colour for
-    // hitGlowSeconds, fading linearly. A glyph is one colour here, so the light
-    // is that colour mixed towards white — and only the colour changes: the
-    // glyph keeps its weight.
+    // A hit mixes the glyph colour towards white for hitGlowSeconds and fades it
+    // linearly. Only the colour changes: the glyph keeps its weight.
     readonly property real hitGlowSeconds: 0.35
     readonly property real hitGlowFill: 0.55    // mix towards white at full pulse
     function glowInk(base, pulse, amount) {
@@ -168,10 +144,9 @@ Item {
     clip: true
 
     // ---- landing ripple ----
-    // Every landing starts a bright wave at the impact point that runs outwards
-    // over the platform's own characters (LandRipple.qml). Nothing is added to
-    // the platform: the wave is an aligned per-character overlay, so the art
-    // itself never changes. Fixed pool, no per-landing item creation.
+    // LandRipple.qml draws a wave that runs outwards over the platform's own
+    // characters as an aligned per-character overlay, so the art never changes.
+    // Fixed pool, no per-landing item creation.
     LandRipple {
         id: ripples
         z: 1.5          // above the platform art it lights up, below the players
@@ -182,8 +157,8 @@ Item {
         scaleY: view.scaleY
     }
 
-    // The engine's landed() carries the platform's left edge, not the platform,
-    // so the art (and the ink colour picked from it) is looked up by that edge.
+    // The engine's landed() carries the platform's left edge, not the platform, so
+    // the art (and the ink colour picked from it) is looked up by that edge.
     function platUnder(platX) {
         var list = view.engine.platforms;
         for (var i = 0; i < list.length; i++) {
@@ -230,10 +205,9 @@ Item {
             textFormat: Text.PlainText
             required property var modelData
             // Glyph size follows the vertical world metric (scaleY). The art is
-            // drawn exactly as authored — one pattern per size, no repetition or
-            // truncation — so the engine sizes each platform to its pattern's
-            // own width; the art is centred on the collision box to absorb any
-            // scaleX/scaleY rounding. Art may be multi-row (finish band).
+            // drawn exactly as authored, one pattern per size, so the engine sizes
+            // each platform to its own pattern width; the art is centred on the box
+            // to absorb scaleX/scaleY rounding. Art may be multi-row (finish band).
             readonly property real glyphPx: Math.max(9, Math.round(15 * view.scaleY))
             readonly property var artRows: String(modelData.glyph).split("\n")
             readonly property real artW: artRows[0].length * glyphPx * 0.6 * view.stretchX
@@ -262,14 +236,12 @@ Item {
 
     // ---- hazards: the mode's falling rocks (Asterisk Attack) and collectible
     // glyphs (Glyph Hunt) ----
-    // Constant model (the pool's slot count), like the ghost row, so a spawn
-    // never recreates a delegate — only bindings change. The mode's size class
-    // is the glyph's ink *width*, so the font size is derived from the measured
-    // ink ratio of the character *this slot* draws and the ink box is placed
-    // exactly on the simulated centre. Colour follows the mode: a collect mode
-    // paints each drop in the one player's colour it was stamped with (player 1
-    // or player 2, never a third ink — the same rule the pickup uses), the
-    // hazard modes paint the platform palette by size class.
+    // Constant model (the pool's slot count), so a spawn never recreates a
+    // delegate; only bindings change. A size class is the glyph's ink *width*,
+    // so the font size comes from the measured ratio of the character *this
+    // slot* draws, and the ink box sits on the simulated centre. A collect mode
+    // paints each drop in the player colour it was stamped with (p1Color or
+    // p2Color, never a third ink); hazard modes paint platColors by size class.
     Repeater {
         model: view.engine.hazardMax
         delegate: Text {
@@ -277,8 +249,6 @@ Item {
             required property int index
             readonly property int sz: view.engine.hazardSizeAt(index)
             readonly property var hazard: view.engine.mode.hazard
-            // one character per size class in the collect modes, the single rock
-            // character in Asterisk Attack
             readonly property string glyph: view.engine.hazardGlyphAt(index)
             // which player's colour this drop belongs to (-1 = not a collect mode)
             readonly property int team: view.engine.hazardTeamAt(index)
@@ -310,10 +280,8 @@ Item {
     }
 
     // ---- power-up: the bold "O" released at platform 50 (Asterisk Attack) ----
-    // One slot per player, falling down the arena's middle. It is the player's
-    // own glyph, so it reads as "a spare you", and it glows in that player's
-    // colour (brighter, pulsing) — the drop and the charged glyph then share one
-    // look. Only its owner can catch it.
+    // One slot per player. It is the player's own glyph in that player's glowing
+    // colour, and only its owner can collect it.
     Repeater {
         model: 2
         delegate: Text {
@@ -323,16 +291,13 @@ Item {
             readonly property color base: index === 0 ? view.p1Color : view.p2Color
             readonly property real sx: (view.engine.powerupXAt(index) - view.camX) * view.scaleX
             readonly property real sy: (view.engine.powerupYAt(index) - view.camY) * view.scaleY
-            // each pane only shows its own player's power-up: the drop is a
-            // private reward (the engine only lets its owner collect it anyway),
-            // so showing it to the opponent would just be a tease
             visible: live && index === view.selfIdx
                      && sy > -40 && sy < view.height + 40
                      && sx > -40 && sx < view.width + 40
             text: view.playerGlyph
             color: view.glowInk(base, powerPulse, view.hitGlowFill)
-            // centred on the world point through the measured ink, like every
-            // other bit of art here, so the collision box and the glyph agree
+            // placed on the world point through the measured ink, so the box
+            // and the glyph agree
             x: sx - width / 2
             y: sy - (ink.playerInkBottomPx(view.playerGlyph, view.playerFontPx)
                      - ink.playerInkHeightPx(view.playerGlyph, view.playerFontPx) / 2)
@@ -341,7 +306,7 @@ Item {
             font.bold: true
             font.features: ink.artFontFeatures
             z: 3
-            // gentle glow: fixed animation, never restarted per event
+            // fixed animation, never restarted per event
             property real powerPulse: 0.4
             SequentialAnimation on powerPulse {
                 loops: Animation.Infinite
@@ -357,16 +322,16 @@ Item {
     }
 
     // ---- finish orb: the round ends when this is touched ----
-    // Drawn in every pane (both players have to see the goal), above the tower
-    // and behind the glyphs. Two circles: a soft halo and the orb itself, both
-    // sized through the measured ink box so the paint lands on engine orbX/orbY.
+    // Drawn in every pane, above the tower and behind the glyphs. Two circles, the
+    // halo and the orb, both sized through the measured ink box so the paint lands
+    // on engine orbX/orbY.
     Repeater {
         model: 2
         delegate: Text {
             textFormat: Text.PlainText
             required property int index
             readonly property bool halo: index === 0
-            // halo: a touch wider than the orb it belongs to (glow, not hitbox)
+            // halo: wider than the orb (glow, not hitbox)
             readonly property real px: view.orbFontPx * (halo ? 1.12 : 1.0)
                 * view.orbScale
             readonly property real sx: (view.engine.orbX - view.camX) * view.scaleX
@@ -374,8 +339,7 @@ Item {
             visible: view.orbVisible && sx > -60 && sx < view.width + 60
                      && sy > -60 && sy < view.height + 60
             text: view.orbGlyph
-            // the halo is the same circle, dimmer and wider: the terminal
-            // reading of an additive glow, which has no blur here
+            // the halo is the same circle, dimmer and wider; no blur here
             color: view.orbRamp(view.engine.orbBrightPulse)
             opacity: halo ? 0.30 : 1.0
             width: ink.orbInkWidthPx(view.orbGlyph, px)
@@ -405,17 +369,13 @@ Item {
             readonly property real wy: isP1 ? view.engine.p1y : view.engine.p2y
             readonly property real sx: (wx - view.camX) * view.scaleX
             readonly property real sy: (wy - view.camY) * view.scaleY
-            // feet (collision bottom) in pane pixels; the glyph is drawn so
-            // its painted bottom lands exactly on that line, i.e. on the
-            // platform's painted top
+            // feet (collision bottom) in pane pixels; the glyph's painted bottom
+            // lands exactly on that line, the platform's painted top
             readonly property real feetY: (wy + view.engine.playerH - view.camY) * view.scaleY
             readonly property real glyphW: 20 * view.scaleX
             readonly property real glyphH: 20 * view.scaleY
             readonly property bool gliding: isP1 ? view.engine.p1Gliding
                                                  : view.engine.p2Gliding
-            // An idle player sleeps: the Ö becomes a small ö whose dots blink
-            // (see blinkTimer). A charge or the orb trophy outranks the nap — both
-            // are states the player is meant to see.
             readonly property real idleFor: isP1 ? view.engine.p1Idle : view.engine.p2Idle
             readonly property bool asleep: idleFor >= view.idleSeconds
                                            && !playerItem.shielded && !playerItem.orbHero
@@ -426,8 +386,8 @@ Item {
                                                        || playerItem.blinks >= view.idleBlinks)
                                                       ? view.blinkGlyph : view.idleGlyph)
                                                    : view.playerGlyph))
-            // standing on the other glyph: drop by the carrier's painted-head
-            // offset so the rider's feet touch the art instead of its box top
+            // riding the other glyph: drop by the carrier's painted-head offset so
+            // the rider's feet touch the art, not its box top
             readonly property bool onHead: isP1 ? view.engine.p1OnHead
                                                : view.engine.p2OnHead
             readonly property string carrierGlyph: (isP1 ? view.engine.p2Gliding
@@ -442,8 +402,7 @@ Item {
             readonly property bool offLeft: sx + glyphW < 0
             readonly property bool offRight: sx > view.width
             readonly property bool off: offAbove || offBelow || offLeft || offRight
-            // fell past the arena floor: the view shows the death marker at the
-            // bottom edge instead of pinning the falling glyph
+            // fell past the arena floor: show the death marker, not a pinned glyph
             readonly property bool inAbyss: wy > view.engine.baseH
             readonly property int ghostIdx: isP1 ? 0 : 1
 
@@ -455,27 +414,23 @@ Item {
             height: glyphH
             z: 2
 
-            // Ghost trail: a crossed O per fall, newest brightest, on the pane's
-            // bottom edge. Constant model (slot count), so a death only updates
-            // bindings and never rebuilds delegates.
+            // Ghost trail: a crossed O per fall, newest brightest. Constant model
+            // (slot count), so a death only updates bindings.
             Repeater {
                 model: view.engine.ghostMax
                 delegate: Text {
                     textFormat: Text.PlainText
                     required property int index
                     readonly property int age: view.engine.ghostAge(playerItem.ghostIdx, index)
-                    // world-anchored like platforms: each marker's feet sit on
-                    // its own world y (the arena floor line for a fall, the
-                    // death spot when a rock got the player), so they scroll
-                    // with the camera instead of riding the pane edge
+                    // world-anchored like platforms: feet sit on the marker's own
+                    // world y (the arena floor line for a fall, the death spot for
+                    // a rock kill), so the marks scroll with the camera
                     readonly property real ghostWy: view.engine.ghostYAt(playerItem.ghostIdx, index)
                     readonly property real ghostPaneY: (ghostWy - view.camY) * view.scaleY
                         - ink.playerInkBottomPx(view.deathGlyph, view.playerFontPx)
-                    // world x of the fallen glyph's *centre* — the marker is laid
-                    // out exactly like the player Text (a glyph-wide box with the
-                    // advance centred), so the ghost's ink lands on the spot the
-                    // O had; drawing it as a left edge, as this row used to, put
-                    // it one half-glyph off the fall
+                    // world x of the fallen glyph's *centre*. The marker is laid
+                    // out exactly like the player Text (glyph-wide box, advance
+                    // centred) so its ink lands where the O was
                     readonly property real ghostX: view.engine.ghostXAt(playerItem.ghostIdx, index)
                     readonly property real gx: Math.max(4,
                         Math.min(view.width - playerItem.glyphW - 4,
@@ -499,8 +454,6 @@ Item {
                 }
             }
 
-            // landing impact: the big O drops to a small o for a moment, then
-            // pops back — the player is drawn at the full glyph size otherwise
             property bool impactTiny: false
             Timer {
                 id: tinyTimer
@@ -508,15 +461,9 @@ Item {
                 onTriggered: playerItem.impactTiny = false
             }
 
-            // Idle blink: the ö's dots are the eyes, so a blink is the plain o for
-            // ~110 ms. Blink gaps are irregular (2.2-5.4 s) — a fixed metronome
-            // reads as a machine, not as a face. Both timers are fixed per player,
-            // never created per event.
+            // Idle blink: the plain o for ~110 ms, with irregular gaps (2.2-5.4 s).
+            // Both timers are fixed per player, never created per event.
             property bool blinking: false
-            // blinks spent in *this* nap: after view.idleBlinks the timer stops
-            // running and the glyph stays on the closed-eye `o` (see the glyph
-            // rule above), so a long idle ends up fast asleep rather than
-            // twitching forever. Waking resets the count.
             property int blinks: 0
             onAsleepChanged: if (!playerItem.asleep) playerItem.blinks = 0
             Timer {
@@ -546,8 +493,6 @@ Item {
                 }
             }
 
-            // bump glow: hit pulse 1 -> 0 over hitGlowSeconds (see hitGlowFill),
-            // restarted by every hit, so both players flash their own colour
             property real hitGlow: 0
             NumberAnimation {
                 id: glowAnim
@@ -563,24 +508,18 @@ Item {
             }
             readonly property color baseColor: playerItem.isP1 ? view.p1Color : view.p2Color
             readonly property bool shielded: isP1 ? view.engine.p1Bold : view.engine.p2Bold
-            // the player who touched the orb keeps the orb's size and a steady
-            // glow for the rest of the round (the touching body fills up
-            // and stays lit). Everything this delegate draws the glyph with reads
-            // fontPx, so growing it keeps the painted feet on the same line.
+            // the player who touched the orb draws at the orb's font size; this
+            // delegate reads fontPx throughout, so the painted feet stay put
             readonly property bool orbHero: view.engine.orbWinner === index
             readonly property real fontPx: orbHero ? view.orbFontPx : view.playerFontPx
-            // charged: hold the glyph at a full flash (the normal state is bold
-            // already, so the brighter ink is what reads as "shielded"), and a
-            // bump can never be dimmer than the charge. The orb hero is lit on
-            // the orb's own (engine-driven) brightness pulse, so the two read as
-            // one thing.
+            // charged: hold the glyph at a full flash, so a bump is never dimmer
+            // than the charge; the orb hero rides the engine's brightness pulse
             readonly property color glowFill: view.glowInk(playerItem.baseColor,
                 Math.max(playerItem.hitGlow, playerItem.shielded ? 1.0 : 0.0,
                          playerItem.orbHero ? view.engine.orbBrightPulse : 0.0), view.hitGlowFill)
 
-            // walking wobble: every footstep dips the glyph and springs it back.
-            // Panel plays the matching step blip, so sound and motion share the
-            // engine's 0.3 s cadence. The glyph is *scaled*, never re-laid out
+            // walking wobble: every footstep dips the glyph and springs it back, on
+            // the engine's 0.3 s cadence. The glyph is *scaled*, never re-laid out
             // (a font-size animation would re-shape the text every frame).
             property real stepWobble: 1.0
             SequentialAnimation {
@@ -617,30 +556,25 @@ Item {
                          : parent.offLeft ? "◀" : parent.offRight ? "▶" : "")
                 color: playerItem.glowFill
                 opacity: parent.off ? 0.5 : 1.0
-                // hidden while dropping into the abyss (no ▼ pin mid-fall) — the
-                // glyph only: the delegate also carries the ghost row, which must
-                // stay on screen through a death
+                // hidden while dropping into the abyss (no ▼ pin mid-fall): this
+                // Text only, the ghost row in the same delegate must stay up
                 visible: !parent.inAbyss
                 font.family: "monospace"
                 font.pixelSize: playerItem.fontPx
-                // weight carries the charge: a regular glyph normally, bold
-                // while shielded (the power-up drop is drawn bold as well, so
-                // the pick-up and the charged state read as one thing)
+                // weight carries the charge: bold while shielded
                 font.bold: playerItem.shielded
                 transform: [
                     // walk wobble: uniform shrink about the *painted feet* (the
-                    // delegate's y already puts that ink bottom on the ground),
-                    // so a step squashes the glyph down onto the platform
-                    // instead of lifting it off
+                    // delegate's y already puts the ink bottom on the ground), not
+                    // the box bottom
                     Scale {
                         origin.x: playerText.width / 2
                         origin.y: ink.playerInkBottomPx(playerItem.glyph, playerItem.fontPx)
                         xScale: playerItem.stepWobble
                         yScale: playerItem.stepWobble
                     },
-                    // fullscreen horizontal stretch, applied outside the wobble
-                    // so the squashed glyph is stretched like the rest of the
-                    // art (see stretchX)
+                    // horizontal stretch applied outside the wobble, so a squashed
+                    // glyph stretches like the rest of the art (see stretchX)
                     Scale {
                         origin.x: 0
                         origin.y: 0
@@ -666,14 +600,11 @@ Item {
             textFormat: Text.PlainText
             id: tag
             anchors.centerIn: parent
-            // Who this pane belongs to, what the mode's goal looks like, and how
-            // far along that player is: `P1: 3_100 | Ø 4`. The middle segment
-            // is the mode's own tag glyph (`~`, the start pad's character, in the
-            // racing modes; `$`, the richest collectible in Glyph Hunt) followed by either the
-            // platform count in the bar label's `N_target` form or, in the collect
-            // modes, the points — `P1 | $ 3_10`. Deaths are counted with the ghost
-            // glyph, so the marker and the counter read as one thing; the segment
-            // is dropped entirely while that player has not fallen.
+            // Pane owner, the mode's goal and progress: `P1: 3_100 | Ø 4`. The
+            // middle segment is the mode's tag glyph (`~` in the racing modes,
+            // `$` in Glyph Hunt) plus either the platform count or the points
+            // (`P1 | $ 3_10`). The death segment appears only once that player
+            // has fallen.
             readonly property string tagGoal: view.engine.mode.tagGlyph
                                                ? view.engine.mode.tagGlyph + " " : ""
             readonly property string tagProgress: view.engine.scoreTarget > 0

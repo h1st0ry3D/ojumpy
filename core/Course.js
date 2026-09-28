@@ -1,26 +1,25 @@
 // The tower's course generator, as pure functions.
 //
-// `build(config, seed)` is a function of the tuning config and the round seed
-// only — no engine state — so the same seed always produces the same course and
-// the generator can be exercised on its own.
+// `build(config, seed)` depends on the tuning config and the round seed only,
+// with no engine state, so one seed always produces the same course.
 //
-// Steps climb by one discrete unit so every hop is one committed jump:
+// Steps climb by one discrete unit:
 //   single : +1 unit (normal jump)   double : +2 units (needs the double jump)
 //   bridge : ±0 units (long flat crossing)
 // Horizontal spread is a self-avoiding walk with a heading: it keeps its
 // direction, bounces off the arena sides, shrinks the gap before giving up, and
-// validates each candidate (inside the arena, minimum edge gap, no same-level
-// overlap). Widths come from a three-size pool, never the same size twice.
+// validates each candidate. Widths come from a three-size pool, never the same
+// size twice.
 .pragma library
 
-// Linear congruential generator: the same one the engine seeded rounds with, so
-// course generation stays reproducible for a given seed.
+// Linear congruential generator. Must stay identical to the engine's, or a
+// seed would not reproduce a course.
 function rand(seedObj) {
     seedObj.s = (seedObj.s * 1664525 + 1013904223) >>> 0;
     return seedObj.s / 4294967296;
 }
 
-// Weighted step kind: mostly single jumps, with double/bridge here and there.
+// Weighted step kind, mostly single jumps.
 function pickKind(r) {
     var roll = rand(r);
     if (roll < 0.55) return "single";
@@ -28,18 +27,15 @@ function pickKind(r) {
     return "bridge";
 }
 
-// Art for a platform of this size: the pool is small/middle/long, so the
-// pattern tells the player how wide the landing will be.
+// Art for a platform of this size class (small/middle/long).
 function glyphForSize(cfg, w) {
     if (w <= cfg.platSizes[0]) return cfg.glyphs[1];
     if (w >= cfg.platSizes[cfg.platSizes.length - 1]) return cfg.glyphs[3];
     return cfg.glyphs[2];
 }
 
-// True if (x..x+w) at height y would touch an already placed platform that sits
-// on the same level. Platforms on other levels are floating slabs and may share
-// the footprint (that is what makes the course spread instead of marching in a
-// line).
+// True if (x..x+w) at height y would touch an already placed platform on the
+// same level. Platforms on other levels may share the footprint.
 function sameLevelHit(cfg, list, x, w, y) {
     for (var i = 0; i < list.length; i++) {
         var p = list[i];
@@ -51,12 +47,8 @@ function sameLevelHit(cfg, list, x, w, y) {
     return false;
 }
 
-// Self-avoiding walk. Returns null when it boxes itself in (the caller retries
-// with a fresh seed). Every placed platform is one jump above the previous
-// one, so reachability holds by construction. The step is fitted to the room
-// actually left on that side (a bridge that can't be long becomes a normal hop
-// instead of a stubby flat step), which is what keeps the walk from grinding
-// against the arena walls.
+// Self-avoiding walk. Returns null when it boxes itself in; the caller retries
+// with a fresh seed. Each platform is one jump up, so reachability holds.
 function grow(cfg, r) {
     var list = [{
         x: cfg.basePlatX, y: cfg.platBaseY, w: cfg.basePlatW,
@@ -69,14 +61,12 @@ function grow(cfg, r) {
         var isGoal = i === cfg.platCount - 1;
         var kind = i === 1 ? "single" : pickKind(r);
         if (kind === "bridge" && prevKind === "bridge") kind = "single";
-        // The finish is always a climbing step: a flat step would leave the
-        // taller checkered band level with the last regular platform, so the
-        // band's second row would sit next to / below it.
+        // The finish is always a climbing step: a flat step would put the taller
+        // checkered band level with the last platform, second row below it.
         if (isGoal && kind !== "double") kind = "single";
         var prev = list[i - 1];
 
-        // size pool, never the same size twice in a row (the finish platform is
-        // as wide as the start island and always checkered)
+        // size pool, never the same size twice in a row
         var sizes = [];
         for (var s = 0; s < cfg.platSizes.length; s++) {
             if (cfg.platSizes[s] !== prevSize) sizes.push(cfg.platSizes[s]);
@@ -85,12 +75,10 @@ function grow(cfg, r) {
                        : sizes[Math.floor(rand(r) * sizes.length)];
         var glyph = isGoal ? cfg.finishGlyph : glyphForSize(cfg, w);
 
-        // room left on either side of the previous platform
         var roomR = (cfg.baseW - cfg.genEdge) - (prev.x + prev.w);
         var roomL = prev.x - cfg.genEdge;
-        // A bridge only counts when it can really be a long crossing: if even
-        // the roomier side can't fit one, the step becomes a normal hop instead
-        // of a stubby flat step.
+        // A bridge only counts when it can be long: if the roomier side cannot
+        // fit one, the step becomes a normal hop rather than a stubby flat step.
         if (kind === "bridge"
                 && Math.max(roomR, roomL) - w < cfg.genBridgeGapMin) {
             kind = "single";
@@ -103,8 +91,7 @@ function grow(cfg, r) {
                 * ((kind === "bridge" ? cfg.genBridgeGapMax : cfg.genClimbGapMax)
                    - minReq + 1));
 
-        // Prefer the current heading, then bounce; a bridge goes to the roomier
-        // side first (it needs the space).
+        // current heading first, then bounce; a bridge tries the roomier side
         var dirs = (kind === "bridge" && roomL > roomR)
                  ? [-1, 1] : [heading, -heading];
         var placed = null;
@@ -130,8 +117,7 @@ function grow(cfg, r) {
     return valid(cfg, list) ? list : null;
 }
 
-// Full-layout check: unit-height steps only, every hop inside the jump budget,
-// no two platforms sharing a level without a gap between them.
+// Full-layout check on the whole list: step heights, gaps, and level sharing.
 function valid(cfg, list) {
     if (list.length !== cfg.platCount) return false;
     for (var i = 1; i < list.length; i++) {
@@ -157,8 +143,7 @@ function valid(cfg, list) {
     return true;
 }
 
-// Deterministic ladder, used only if the walk cannot be placed at all (keeps
-// every round playable).
+// Deterministic ladder, used only when the walk cannot be placed at all.
 function fallback(cfg, seed) {
     var r = { s: (seed ^ 0x5f3759df) >>> 0 };
     var list = [];
@@ -183,9 +168,8 @@ function fallback(cfg, seed) {
     return list;
 }
 
-// Deterministic level: same seed => same course. Tries the self-avoiding walk
-// with a fresh seed up to 64 times, then falls back to the ladder so a round
-// always has a course.
+// Deterministic level: one seed gives one course. Up to 64 walk attempts,
+// then the ladder.
 function build(cfg, seed) {
     for (var attempt = 0; attempt < 64; attempt++) {
         var seedObj = { s: (seed + attempt * 104729) >>> 0 };

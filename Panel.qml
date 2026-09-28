@@ -16,19 +16,14 @@ import "core/Keys.js" as Keys
 // Ojumpy — 2-player glyph race for the Omarchy bar.
 //
 // Architecture (split for extensibility):
-//   GameEngine.qml  — simulation only, fixed base units (440x500). Scaling is a
+//   GameEngine.qml  — simulation only, fixed base units (440x500); scaling is a
 //                     view concern, so fullscreen/resize never touches state.
-//   Course.js       — seeded course generator (pure functions).
-//   GameModes.js    — rules registry; new multiplayer modes = new entry.
-//   GameBoard.qml   — arena layout: one BoardView, or two when P2 joins.
-//   BoardView.qml   — one pane: platforms, players, ghosts, impact effects.
-//   GamePanel.qml   — the drop-down card (chrome, board, buttons, accordion).
-//   BarButton.qml   — the bar icon + tooltip.
-//   ReloadMenu.qml  — the bar icon's right-click menu.
+//   Course.js / GameModes.js — seeded course generator, rules registry.
+//   GameBoard.qml / BoardView.qml — arena layout, one pane.
+//   GamePanel.qml / BarButton.qml / ReloadMenu.qml — card, bar icon, its menu.
 //   DebugIpc.qml    — the `ojumpy.debug` IPC surface.
-//   Panel.qml       — this file: plugin state, palette, scale math and the tick
-//                     (input aggregation + simulation). It owns no view ids; the
-//                     card reports its chrome heights back for the sizing math.
+//   Panel.qml       — plugin state, palette, scale math, the tick. Owns no view
+//                     ids; the card reports its chrome heights back.
 
 Panel {
     id: root
@@ -38,36 +33,32 @@ Panel {
     implicitHeight: button.implicitHeight
 
     readonly property string home: Quickshell.env("HOME")
-    // Both helpers live in the plugin folder and are run as argv arrays with an
-    // absolute interpreter: a `python3` resolved through PATH can be shadowed by
-    // anything on it, `-I -S` keeps the run out of the user's environment and
-    // site-packages, and `-B` stops python writing __pycache__ into this
-    // hot-reload-watched folder.
+    // Both helpers run as argv arrays with an absolute interpreter: a `python3`
+    // resolved through PATH can be shadowed by anything on it, `-I -S` keeps the
+    // run out of the user's environment and site-packages, and `-B` stops python
+    // writing __pycache__ into this hot-reload-watched folder.
     readonly property string python: "/usr/bin/python3"
     readonly property url padHelperUrl: Qt.resolvedUrl("input/ojumpy-pad.py")
     readonly property string padHelperPath: decodeURIComponent(padHelperUrl.toString().replace(/^file:\/\//, ""))
     readonly property url stateHelperUrl: Qt.resolvedUrl("state/ojumpy-state.py")
     readonly property string stateHelperPath: decodeURIComponent(stateHelperUrl.toString().replace(/^file:\/\//, ""))
-    // The theme file is only *watched* through this path; its contents are read
-    // by the helper (see the theme block below).
+    // watched, not read: the contents come from ThemeStore's helper (see below)
     readonly property string themeColorsPath: home + "/.local/state/omarchy/current/theme/colors.toml"
-    // consumer-side ceilings for the helper streams (the helpers enforce the
-    // real byte caps)
+    // consumer-side ceilings; the helpers enforce the real byte caps
     readonly property int stateMaxBytes: 65536
     readonly property int padLineMax: 512
 
     // ---- reactive sizing ----
     // shellScale = Omarchy rem scale ([font] base-size / 12 × [spacing] scale).
-    // fsScaleX/Y = fullscreen boost from the dropdown's ACTUAL content size,
-    // fitting inside the card's real inner area (padding + border insets, and
-    // chrome heights on Y) so the arena never clips.
+    // fsScaleX/Y = fullscreen boost fitted into the card's real inner area
+    // (padding + border insets, chrome heights on Y) so the arena never clips.
     readonly property real shellScale: Style.spacing.scale
     readonly property real _cardInsetW: 2 * (Style.spacing.popupPadding + Math.max(1, Style.normalBorderWidth))
     readonly property real _cardInsetH: 2 * (Style.spacing.popupPadding + Math.max(1, Style.normalBorderWidth))
     readonly property real _chromeH: dropdown.hdrRowH + dropdown.btnRowH + dropdown.helpSectionH
         + dropdown.padToggleH + 4 * Style.space(10) + 2 * Style.space(12)
     // Fullscreen keeps the panel's 440:500 aspect: the arena is fitted to the
-    // available height and the width follows, centred in the screen — no
+    // available height and the width follows, centred in the screen, with no
     // horizontal stretch, so world art and collision boxes always agree.
     readonly property real _fsHeightFit: Math.max(1,
         (dropdown.contentHeight - _cardInsetH - _chromeH) / (500 * root.shellScale))
@@ -90,11 +81,8 @@ Panel {
         : 1.0
 
     // Vertical room the "Ojumpy manual" block may use: whatever the card has
-    // left, so nothing clips. Windowed the board is a fixed size and comes off
-    // the top; fullscreen sizes the board from the leftover room itself
-    // (_fsHeightFit), and reading the board height here would close a binding
-    // loop through _chromeH/scaleY. Nothing left over simply means no room to
-    // show text in — the card still fits.
+    // left. The board takes the top when windowed, the leftover room when
+    // fullscreen. No room means no text; the card still fits.
     readonly property real _cardMaxH: dropdown.availableCardHeight
         // ...matching contentHeight above: the screen's usable height IS the cap
     readonly property real _helpBudget: Math.max(0,
@@ -102,13 +90,10 @@ Panel {
         - dropdown.padToggleH - (root.fsFullscreen ? 0 : dropdown.boardSlotH)
         - 4 * Style.space(10) - 2 * Style.space(12) - Style.space(6) - Style.space(4))
 
-    // fullscreen panes are full arena width (see GameEngine.viewportW)
     Binding { target: game; property: "wideView"; value: root.fsFullscreen }
 
-    // Body of the "Ojumpy manual" accordion: label + value rows instead of one
-    // prose block. It shares the card with the board, so it has to stay short
-    // (five rows, each one line at normal sizes) and scannable; anything longer
-    // wraps inside the row and the whole block scrolls (see _helpBudget).
+    // Manual rows, label + value, five of them: the block shares the card with
+    // the board, and a longer value wraps inside its row and scrolls.
     readonly property real helpLabelW: Math.ceil(56 * root.uiScale)
     readonly property var helpRows: [
         { k: "Mode", v: game.mode.name + " — " + game.mode.tagline },
@@ -127,13 +112,11 @@ Panel {
     property bool _fsKeep: false
     property bool modesOpen: false
     property bool reloadMenuOpen: false
-    // "Ojumpy manual" accordion at the bottom of the panel: closed by default
-    // so the shortcut list is not in the way (persisted in game.json)
+    // persisted in game.json with the mode and best times
     property bool helpOpen: false
-    // Controller support is opt-in: the evdev bridge is only started when this is
-    // on, so a default install opens no input device at all and needs no `input`
-    // group. The pad row in the panel toggles it (a user action) and the choice
-    // is stored with the mode/best document.
+    // Opt-in: the evdev bridge starts only when this is on, so a default install
+    // opens no input device and needs no `input` group. Persisted with the
+    // mode/best document.
     property bool padEnabled: false
     property var keysDown: ({})
 
@@ -149,13 +132,9 @@ Panel {
     }
     function themeColor(key, fallback) { return theme.color(key, fallback) }
 
-    // course palette:
-    //   start pad + finish line  foreground  (inverse of the background)
-    //   longest plat             dark_foreground
-    //   middle plat              light_foreground
-    //   smallest plat            bright_foreground
-    //   player 1                 accent
-    //   player 2                 bright_cyan
+    // course palette: start pad + finish line = foreground (the inverse of the
+    // background), longest plat = dark_foreground, middle = light_foreground,
+    // smallest = bright_foreground, P1 = accent, P2 = bright_cyan
     readonly property color themeGreen: theme.green !== "" ? theme.green : "#2ECC71"
     readonly property color edgeColor: root.themeColor("foreground", Color.foreground)
     readonly property color platLongColor: root.themeColor("dark_foreground", Color.foreground)
@@ -166,18 +145,15 @@ Panel {
     readonly property var platColors: [root.platSmallColor, root.platMidColor, root.platLongColor]
 
     // ---- pad bridge: stdlib evdev reader streaming one JSON line per update ----
-    // The bridge prints a line per change; the panel consumes its own child's
-    // stdout (no state file, no poll, no fixed path to plant something at),
-    // capped per line and field-validated — a helper's output is still input.
-    // `-u` keeps python from buffering the lines away.
+    // stdout of this panel's own child process, capped per line and field-
+    // validated: a helper's output is still input. `-u` unbuffers the lines.
     property var pad: ({p1x: 0, p1left: false, p1right: false, p1jump: false,
                         p2x: 0, p2left: false, p2right: false, p2jump: false,
                         up: false, down: false, confirm: false,
                         pause: false, menu: false, fullscreen: false,
                         connected: false, pads: 0})
-    // Pad lines come from a helper process, so a value here is still input: the
-    // fields are re-coerced, and the axes are clamped through the same helper the
-    // layout uses (core/Keys.js), so both agree on what a stick value means.
+    // axes are clamped through core/Keys.js, the same helper the layout uses,
+    // so both agree on what a stick value means
     function applyPadLine(line) {
         var s = String(line || "");
         if (s.length > root.padLineMax) return;          // reject, never truncate
@@ -209,9 +185,8 @@ Panel {
     }
 
     // ---- persisted mode, best times and accordion state ----
-    // Read once through the descriptor-bound helper (never `FileView.text()`),
-    // written back the same way: a random 0600 temporary in the destination
-    // directory, fsynced, renamed over the destination.
+    // read and written through the descriptor-bound helper, never
+    // `FileView.text()`: a write is a random 0600 temp, fsync, rename
     property string stateBuf: ""
     property bool stateOverflow: false
     Process {
@@ -238,23 +213,21 @@ Panel {
         var d = null;
         try { d = JSON.parse(String(raw || "")); } catch (e) { return; }
         if (!d || typeof d !== "object") return;
-        // a mode this build no longer has (or one renamed since) falls back to
-        // the default instead of leaving the engine on a dead id — the next
-        // write then heals the document
+        // a mode this build no longer has falls back to the default rather than
+        // a dead id; the next write heals the document
         if (d.mode) game.modeId = Modes.isReady(d.mode) ? d.mode : "race";
         if (d.best && typeof d.best === "object") {
             var best = {};
             for (var k in d.best) {
                 var ms = Number(d.best[k]);
-                // only modes this build knows: the document is closed schema
+                // closed schema: only modes this build knows
                 if (Modes.isReady(k) && isFinite(ms) && ms >= 0 && ms < 1e9) best[k] = ms;
             }
             game.bestByMode = best;
         }
         root.helpOpen = !!d.help;
         root.padEnabled = !!d.pad;
-        // the document said the user wants gamepads: start the reader now rather
-        // than waiting for the watchdog timer
+        // skip the watchdog: start the reader now if the document asked for pads
         if (root.padEnabled && !padProc.running) padProc.running = true;
     }
     Process {
@@ -270,7 +243,7 @@ Panel {
     }
     function saveState() {
         stateWrite.running = false;
-        stateWrite.running = true;    // onStarted writes the current document
+        stateWrite.running = true;    // onStarted writes the document
     }
 
     // ---- engine ----
@@ -283,9 +256,7 @@ Panel {
     }
     onHelpOpenChanged: root.saveState()
 
-    // Starting/stopping the bridge is explicit, never a binding the restart
-    // timer could fight with: the timer only re-starts what the user asked for,
-    // and turning it off really stops the reader.
+    // explicit, not a binding the restart timer could fight with
     function setPadEnabled(on) {
         root.padEnabled = !!on;
         padProc.running = false;
@@ -294,9 +265,8 @@ Panel {
     }
 
     // ---- sound effects ----
-    // Sfx.qml owns the cues, the player probe and the voice pool; the panel just
-    // says when sound is allowed (while it is open — the sim keeps ticking in the
-    // background, so a held pad button must not click footsteps out of the bar).
+    // Sfx.qml owns the cues, the probe and the voice pool; the panel only says
+    // when sound is allowed (while it is open, though the sim keeps ticking).
     Sfx {
         id: sfx
         game: game
@@ -306,9 +276,8 @@ Panel {
     function fmt(t) { return game.fmtTime(t); }
 
     // ---- input sources: keyboard (keysDown) + pad bridge ----
-    // The *layout* (which key means what, and how solo play merges the two key
-    // sets) is core/Keys.js, pure and checkable on its own; these wrappers only
-    // feed it the live key set, the pad state and whether P2 is in the round.
+    // the key/pad layout lives in core/Keys.js; these wrappers only feed it the
+    // live key set, the pad state and whether P2 is in the round
     function p1Left() { return Keys.p1Left(root.keysDown, root.pad, game.p2Joined); }
     function p1Right() { return Keys.p1Right(root.keysDown, root.pad, game.p2Joined); }
     function p1JumpHeld() { return Keys.p1Jump(root.keysDown, root.pad, game.p2Joined); }
@@ -326,13 +295,11 @@ Panel {
     }
 
     function toggleFullscreen() {
-        // Pure view change: the engine lives in base units, so the level,
-        // positions and timer survive untouched. No restart, no relayout.
-        // F is the only fullscreen toggle; Esc just closes the panel.
-        // _fsKeep marks the deliberate close+reopen below, so that close is not
-        // mistaken for "the game went to the background" — set it only when the
-        // reopen really follows, or a toggle from a closed panel would leave it
-        // stuck on and disable the auto-pause.
+        // View-only: the engine lives in base units, so the level, positions and
+        // timer survive untouched. F is the only fullscreen toggle; Esc closes.
+        // _fsKeep marks the close+reopen below so the tick's auto-pause skips it:
+        // set it only when the reopen really follows, or a toggle from a closed
+        // panel would leave it stuck on.
         root._fsKeep = root.opened
         root.fsFullscreen = !root.fsFullscreen
         if (root.opened) { root.close(); root.toggle(); }
@@ -343,13 +310,10 @@ Panel {
         id: tick
         interval: 16; running: true; repeat: true
         onTriggered: {
-            // Pad buttons: Start is context-sensitive like the pause key — it
-            // pauses a live round and starts one from the ready screen; Select (or
-            // Mode) opens the mode picker; R3 toggles fullscreen. All rising edges.
-            // A *finished* round is left to R (and to the pad's Select → A): at the
-            // win, Start/A is what the players are mashing. Fullscreen is the same
-            // view-only toggle as F, so it is ignored while the panel is shut
-            // (nothing is drawn to go fullscreen; the flag is cleared on close too).
+            // Pad buttons, all rising edges: Start pauses a live round or starts
+            // one from the ready screen, Select opens the mode picker, R3
+            // fullscreen. A finished round is left to R and Select → A; fullscreen
+            // is ignored while the panel is shut (the flag is cleared on close).
             var pPause = !!root.pad.pause, pMenu = !!root.pad.menu;
             var pFs = !!root.pad.fullscreen;
             if (pPause && !root.padPauseWas) {
@@ -360,24 +324,18 @@ Panel {
             if (pFs && !root.padFsWas && root.opened) root.toggleFullscreen();
             root.padPauseWas = pPause; root.padMenuWas = pMenu; root.padFsWas = pFs;
             // P2 joins on J, or on a fresh *pad* P2 input (edge-triggered, so
-            // leaving with a button held doesn't instantly re-join). Solo: P2 is
-            // inert. The keyboard's P2 keys cannot join — see p2PadInput().
+            // leaving with a button held cannot re-join). See p2PadInput().
             var p2in = root.p2PadInput();
             if (!game.p2Joined && p2in && !root.p2InputWas) game.joinP2();
             root.p2InputWas = p2in;
-            // The panel is the only place the game is drawn, so a round must
-            // never run while it is off-screen: whenever the panel is dismissed
-            // (Esc, the ✕, clicking away, another panel taking over) a running
-            // round freezes — a round just started from a pad while the panel was
-            // already closed (or from the debug IPC) is caught here too, since
-            // that path never sees an open->closed transition. Fullscreen closes
-            // and reopens the panel on purpose to relayout (_fsKeep), so that one
-            // close is excluded. pauseGame() is a no-op unless a round is live.
+            // The panel is the only place the game is drawn, so a round must never
+            // run off-screen: any dismissal pauses it, which also catches a round
+            // started while the panel was already closed. pauseGame() is a no-op
+            // unless a round is live; _fsKeep skips the fullscreen toggle's close.
             if (!root.opened && !root._fsKeep) game.pauseGame();
             // The mode picker takes the pad's vertical axis and A while it is
-            // open (rising edges only). The "was" flags are kept hot even while
-            // it is closed, so a button held from before cannot act the instant
-            // it opens. The racers move on X alone, so nothing is taken from them.
+            // open. The "was" flags update every tick, so a button held from
+            // before cannot act the instant it opens.
             var mUp = !!root.pad.up, mDown = !!root.pad.down, mOk = !!root.pad.confirm;
             if (root.modesOpen) {
                 if (mUp && !root.padUpWas) dropdown.modeMoveCursor(-1);
@@ -400,13 +358,11 @@ Panel {
     property bool padMenuWas: false
     property bool padFsWas: false
     property bool p2InputWas: false
-    // pad edges for the mode picker (see the tick)
     property bool padUpWas: false
     property bool padDownWas: false
     property bool padConfirmWas: false
 
-    // The palette arrives from ThemeStore asynchronously; nothing else has to
-    // happen at startup (the store starts its own read).
+    // the store starts its own read; the palette arrives asynchronously
     Component.onCompleted: theme.reload()
 
     onOpenedChanged: {
@@ -414,27 +370,18 @@ Panel {
             dropdown.focusGame();
             root.modesOpen = false;
             root._fsKeep = false;
-            // re-read the palette on open as well: the watcher covers live theme
-            // switches, this covers anything it might have missed while closed
+            // re-read on open too: covers what the watcher missed while closed
             theme.reload();
         }
         else {
-            // (The auto-pause on a dismissed panel lives in the tick, so it also
-            // covers rounds started while the panel was already closed.)
             if (!root._fsKeep && root.fsFullscreen) root.fsFullscreen = false;
         }
     }
 
     // ---- bar widget button ----
-    // The live label is progress while a round runs ("99_100"), otherwise the two
-    // glyphs ("ö_Ö"). BarButton.qml sizes the icon slot from it and owns the
-    // tooltip; here we only keep the label and wire the two clicks.
-    // Progress in the bar: the climb in the racing modes, player 1's score in the
-    // collect modes (Glyph Hunt), and the idle glyphs otherwise. A *paused* round
-    // keeps its progress on purpose: the label is what sizes the bar icon's slot
-    // (BarButton measures it) and the panel is anchored to that button, so
-    // switching to "ö_Ö" would shrink the slot and shift the panel sideways the
-    // moment someone paused. The paused state lives in the tooltip instead.
+    // Bar widget label: the climb, or player 1's score in the collect modes, while
+    // a round runs; the idle glyphs otherwise. A paused round keeps its progress
+    // (see BarButton.qml, which measures this label).
     readonly property string barLabel: game.roundActive
         ? (game.scoreTarget > 0 ? (game.p1Score + "_" + game.scoreTarget)
                                 : (game.p1Plat + "_" + (game.platforms.length - 1)))
@@ -448,8 +395,6 @@ Panel {
         onReloadRequested: root.reloadMenuOpen = !root.reloadMenuOpen
     }
 
-    // The bar button's right-click menu (see ReloadMenu.qml): it reports the
-    // click back here so the flag can toggle, and hides itself after a reload.
     ReloadMenu {
         id: reloadMenu
         panel: root

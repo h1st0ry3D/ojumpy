@@ -5,9 +5,9 @@ import qs.Ui
 
 // Right-click menu on the bar icon: asks the shell to rescan plugins.
 //
-// The open flag lives in the panel (`openState`, so bar clicks can toggle it);
-// the component reports back through `dismissed()` when the popup hides itself, and
-// `reloadRequested()` when the user picks the reload item.
+// The open flag lives in the panel (`openState`); this component reports back
+// through `dismissed()` when the popup hides itself and `reloadRequested()` on
+// the reload item.
 PopupCard {
     id: reloadMenu
 

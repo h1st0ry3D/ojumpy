@@ -9,11 +9,9 @@ import "Plain.js" as Plain
 // collapsible controls list, the controller switch) with the win confetti and
 // the game's keyboard shortcuts.
 //
-// `panel` is the plugin root: it owns the scale factors, the palette roles, the
-// ui flags (modesOpen/helpOpen/fsFullscreen), the pad state and the help rows,
-// so this component stays view-only and the panel can still answer `dims` with
-// the card metrics.
-// ---- dropdown panel: chrome + game board + mode overlay ----
+// `panel` is the plugin root and owns the scale factors, palette roles, ui
+// flags, pad state and help rows; this component stays view-only and reports
+// its chrome heights back for the panel's sizing math.
 KeyboardPanel {
     id: gamePanel
 
@@ -22,9 +20,7 @@ KeyboardPanel {
     required property var anchorButton
 
     // ---- measurements the panel's sizing math needs ----
-    // The chrome lives here, so the card reports its own heights instead of the
-    // panel reaching into ids it no longer owns (that used to raise
-    // ReferenceErrors for hdrRow/btnRow/helpToggle/boardSlot/gameFocus).
+    // the chrome lives here, so the card reports its own heights
     readonly property real hdrRowH: hdrRow.height
     readonly property real btnRowH: btnRow.height
     readonly property real helpSectionH: helpSection.height
@@ -33,9 +29,8 @@ KeyboardPanel {
     readonly property real boardSlotH: boardSlot.height
     function focusGame() { gameFocus.forceActiveFocus() }
 
-    // The mode picker's cursor, driven from outside: Panel's key handler calls
-    // these directly, Panel's tick calls them on pad edges. The picker itself
-    // stays passive (it has no focus, so it never competes for keys).
+    // the mode picker's cursor, driven from outside: Panel's key handler and
+    // tick call these, and the picker has no focus, so it never competes for keys
     function modeMoveCursor(delta) { modeSelect.moveCursor(delta) }
     function modeActivateCursor() { modeSelect.activateCursor() }
     anchorItem: gamePanel.anchorButton
@@ -44,17 +39,16 @@ KeyboardPanel {
     open: panel.opened
     focusTarget: gameFocus
     contentWidth: panel.fsFullscreen ? gamePanel.availableCardWidth : gamePanel.fittedContentWidth(Style.space(480))
-    // Height cap: the shell's own "what fits on screen" figure, with no
-    // smaller limit — the arena (500 units) plus chrome is tall, and a lower
-    // cap would squeeze the info block on tall screens.
+    // Height cap: the shell's own "what fits on screen" figure, with no smaller
+    // limit. The arena (500 units) plus chrome is tall, and a lower cap squeezes
+    // the info block.
     contentHeight: panel.fsFullscreen ? dropdown.availableCardHeight
                                     : gamePanel.fittedContentHeight(col.implicitHeight)
 
     // ---- win confetti across the whole panel (fullscreen = whole screen) ----
-    // Held back 1 s after the round is won (ROUND_CLEAR_HOLD_TIME):
-    // the glyph grows and lights up first, *then* the shower starts, and the
-    // verdict card follows 2 s in — GameBoard runs that timer, this one the
-    // confetti. A new round clears both.
+    // Held back 1 s after the win (ROUND_CLEAR_HOLD_TIME) so the glyph beat
+    // lands first; GameBoard runs the 2 s verdict delay, this one the shower.
+    // Any win fires it: the orb (racing modes) or the tenth glyph (Glyph Hunt).
     Confetti {
         anchors.fill: parent
         z: 6
@@ -63,9 +57,8 @@ KeyboardPanel {
         scale: panel.uiScale
     }
     property bool confettiOn: false
-    // Hidden non-visual items live in their own zero-sized Item: this panel's
-    // default property is contentItem, so a bare Timer would be treated as an
-    // item to lay out and the card would fail to load.
+    // hidden non-visual items need their own zero-sized Item: the default
+    // property is contentItem, so a bare Timer would be laid out and fail
     Item {
         width: 0
         height: 0
@@ -76,7 +69,6 @@ KeyboardPanel {
         }
         Connections {
             target: game
-            // any win: the orb (racing modes) or the tenth glyph (Glyph Hunt)
             function onRoundEnded(playerIdx, timeSec) { confettiDelay.restart() }
             function onRoundStarted() { confettiDelay.stop(); gamePanel.confettiOn = false }
         }
@@ -96,7 +88,7 @@ KeyboardPanel {
             }
             if (event.key === Qt.Key_M) { panel.modesOpen = !panel.modesOpen; event.accepted = true; return; }
             if (panel.modesOpen) {
-                // the picker owns Up/Down/Enter while it is open: the sim is not
+                // the picker owns Up/Down/Enter while it is open; the sim is not
                 // ticked in that state, so no key is taken away from the game
                 if (event.key === Qt.Key_Up) { dropdown.modeMoveCursor(-1); event.accepted = true; return; }
                 if (event.key === Qt.Key_Down) { dropdown.modeMoveCursor(1); event.accepted = true; return; }
@@ -120,11 +112,9 @@ KeyboardPanel {
             if (event.key === Qt.Key_J) {
                 game.toggleP2(); event.accepted = true; return;
             }
-            // Enter is player 2's jump (solo: P1's as well) while a round is live,
-            // but from the ready screen it starts a round — nothing can be jumped
-            // there anyway. A *finished* round is deliberately not included: at the
-            // win, Enter is exactly the button the players are mashing, and R is
-            // the rematch key.
+            // Enter is P2's jump (solo: P1's too) while a round is live, but from
+            // the ready screen it starts one. A *finished* round is left to R: at
+            // the win, Enter is what the players are mashing.
             if ((event.key === Qt.Key_Enter || event.key === Qt.Key_Return)
                 && !panel.modesOpen && !game.roundActive && game.winner === "") {
                 game.startRound(); event.accepted = true; return;
@@ -157,21 +147,16 @@ KeyboardPanel {
                 width: parent.width - Style.space(28)
                 height: Math.max(hdrContent.height, fsBtn.height, closeBtn.height)
 
-                // Header text cluster. The three texts run at three different font
-                // sizes (heading / title / body) and used to each centre their own
-                // box in the row, which left "best" floating a few units above the
-                // other two. They share ONE baseline here instead: the title is the
-                // tallest box and the reference, the smaller two are hung off its
-                // baseline by their own baselineOffset. `best` follows the status,
-                // which is hidden while the game is ready/stopped (a hidden Text
-                // takes no room, unlike an empty one, which would still space out).
+                // Header text cluster. The three texts share one baseline instead
+                // of each centring its own box: the title is the tallest box and
+                // the reference, the smaller two hang off its baselineOffset.
                 Item {
                     id: hdrContent
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     readonly property real gap: Style.space(10)
-                    // `baseline` itself is a FINAL Item property (used by QML
-                    // Layouts), so the reference offset needs its own name.
+                    // `baseline` is a final Item property (used by QML Layouts),
+                    // so the reference offset needs its own name.
                     readonly property real textBaseline: titleText.baselineOffset
                     width: bestText.x + bestText.width
                     height: titleText.height
@@ -181,11 +166,6 @@ KeyboardPanel {
                         x: 0
                         y: 0
                         textFormat: Text.PlainText
-                        // The header title is just the mode. The old
-                        // "Ojumpy solo" / "Ojumpy O_O" prefix repeated what the
-                        // board already shows (pane tags, and the
-                        // Splitscreen/Solo button), and the mode is what you
-                        // actually re-check when you sit down.
                         text: game.mode.name
                         color: Color.foreground
                         font.family: Style.font.family
@@ -197,12 +177,10 @@ KeyboardPanel {
                         x: titleText.width + hdrContent.gap
                         y: Math.round(hdrContent.textBaseline - baselineOffset)
                         textFormat: Text.PlainText
-                        // Status only: the clock while running, the win time after a
-                        // win, and nothing in the ready/stopped state — the mode name
-                        // that "ready — …" used to carry is the title now. The two
-                        // markers are Nerd Font glyphs (Font Awesome, the family the
-                        // header icons already use), never emoji: the UI is text art,
-                        // so a colour emoji next to it always looked pasted in.
+                        // Status only: clock while running, win time after a win,
+                        // nothing in ready/stopped. A hidden Text takes no room,
+                        // where an empty one would still space `best` out.
+                        // The markers are Nerd Font glyphs, never emoji.
                         text: game.roundActive ? "\uf017  " + panel.fmt(game.elapsed)
                             : (game.winner !== "" ? "\uf11e  " + panel.fmt(game.winTime) : "")
                         visible: text !== ""
@@ -227,11 +205,9 @@ KeyboardPanel {
                     id: closeBtn
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    // The X needs a bigger font than the fullscreen brackets to read
-                    // as the same size (the glyph is drawn smaller within its em), so
-                    // the icon grows while `size` is pinned to the fullscreen
-                    // button's box — otherwise the taller font would also grow the
-                    // 22x22 button and shift the whole header.
+                    // the X is drawn smaller within its em, so its font scales up to
+                    // match the brackets; `size` stays pinned to the fullscreen
+                    // button's box, or the taller font grows the button too
                     iconText: "\uf00d"
                     fontSize: Style.font.icon * 1.3
                     size: fsBtn.size
@@ -285,8 +261,7 @@ KeyboardPanel {
                 }
             }
 
-            // Buttons carry the action only: the keyboard shortcut lives in
-            // the tooltip (qs.Ui Button renders tooltipText on hover).
+            // the keyboard shortcut lives in the tooltip, not on the button face
             Row {
                 id: btnRow
                 width: parent.width - Style.space(28)
@@ -305,9 +280,6 @@ KeyboardPanel {
                     onClicked: panel.modesOpen = !panel.modesOpen
                 }
                 Button {
-                    // The labels name the layout, not the player: one pane or two.
-                    // Joining/leaving is what the button does, split/solo is what
-                    // you get — and "Solo" also reads as the way out of a split.
                     text: game.p2Joined ? "Solo" : "Splitscreen"
                     tooltipText: game.p2Joined
                         ? "Player 2 drops out: back to one pane (J)"
@@ -322,10 +294,6 @@ KeyboardPanel {
                     onClicked: { panel.modesOpen = false; game.startRound() }
                 }
                 Button {
-                    // Pause takes the row slot the ✕ used to hold: closing moved up
-                    // into the header, next to fullscreen. Closing the panel (or
-                    // anything else that hides it) pauses a running round anyway,
-                    // so the two actions now agree instead of competing.
                     text: game.paused ? "Resume" : "Pause"
                     tooltipText: game.paused
                         ? "Resume the round (P / pad Start)"
@@ -337,10 +305,6 @@ KeyboardPanel {
             }
 
             // ---- controls & info: collapsed by default ----
-            // This is where the shortcut list lives (the buttons above only
-            // carry it in their tooltips), so the bottom of the panel stays
-            // quiet until it is asked for. The open/closed state is kept in
-            // game.json with the mode and the best times.
             Item {
                 id: helpSection
                 width: parent.width - Style.space(28)
@@ -362,9 +326,8 @@ KeyboardPanel {
                         onClicked: panel.helpOpen = !panel.helpOpen
                     }
 
-                    // the shortcut list can be long, so it scrolls inside
-                    // the room left over rather than pushing the card's
-                    // content past its height (see _helpBudget)
+                    // scrolls inside the room left over rather than pushing the
+                    // card's content past its height (see _helpBudget)
                     ScrollView {
                         id: helpScroll
                         visible: panel.helpOpen
@@ -419,10 +382,7 @@ KeyboardPanel {
                     }
                 }
             }
-            // Controller support: the status and the opt-in switch in one row.
-            // Off by default — reading /dev/input/event* is a capability the
-            // user asks for by clicking, so nothing is opened before that.
-            // Text goes through Plain.plain: qs.Ui renders button labels.
+            // text goes through Plain.plain: qs.Ui renders button labels
             Button {
                 id: padToggle
                 width: parent.width - Style.space(28)

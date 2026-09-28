@@ -4,14 +4,10 @@ import "Course.js" as Course
 
 // Ojumpy game engine — non-visual simulation.
 //
-// All simulation happens in BASE units (440x500 arena, fixed physics
-// constants). Views scale positions/sizes for rendering only, so toggling
-// fullscreen or resizing never touches game state: positions, platform
-// placement (roundSeed) and the round timer are naturally preserved.
-//
-// The engine owns the rules dispatch: mode hooks (GameModes.js) decide
-// wins/ends. Views must only read state, never mutate it — go through the
-// API functions (startRound, stopGame, tick).
+// All simulation is in BASE units (440x500 arena, fixed physics constants).
+// Views scale for rendering only, so resizing or fullscreen never touches game
+// state. Mode hooks (GameModes.js) decide wins and ends; views read state and
+// write it only through startRound, stopGame and tick.
 
 Item {
     id: engine
@@ -27,49 +23,40 @@ Item {
     readonly property real maxFall: 950
 
     // ---- glide (hold jump while falling) ----
-    // After at least one jump, holding jump while descending scales gravity down
-    // and clamps the fall, so a held press floats the player across a gap. The
-    // view draws the glider glyph (Ô) while active.
+    // After at least one jump, holding jump while falling scales gravity down
+    // and caps the fall. The view draws the glider glyph (Ô) while active.
     readonly property real glideGravityMult: 0.35
     readonly property real glideFall: 110
-    // vertical overlap (base units) above which a player pair counts as a side
-    // hit rather than a rider standing on a head
+    // vertical overlap (base units) above which a pair is a side hit, not a rider
     readonly property real sideTouch: 3
-    // Side-by-side bodies separate only until their painted glyphs touch: the
-    // monospace "O" ink is 0.44 em, i.e. 8.8 of the 20-unit player font, so
-    // pushing to the full collision box (playerW) would leave a visible gap.
+    // Side-by-side bodies separate only until their painted glyphs touch: "O"
+    // ink is 0.44 em, 8.8 of the 20-unit player font, so pushing to the full
+    // collision box (playerW) would leave a visible gap.
     readonly property real sideBodyW: 8.8
 
     // ---- footsteps (walk cadence) ----
-    // One step every stepInterval while a player moves along a floor; the timer
-    // resets when the walk stops, so the first step of a walk is immediate. The
-    // view wobbles the glyph and Panel plays the cue off stepped(), so both share
-    // this one cadence.
     readonly property real stepInterval: 0.3
 
     // ---- player-vs-player hits ----
-    // A hit fires on the rising edge of contact and is then ignored for
-    // hitCooldown, so leaning on the other player keeps shoving without
-    // retriggering the bump every frame.
+    // A hit fires on the rising edge of contact, then is ignored for
+    // hitCooldown, so leaning keeps shoving without retriggering the bump.
     readonly property real hitCooldown: 0.3
 
     // Platform spacing comes from the jump arc (max height = v^2 / 2g, taken as
-    // a fixed fraction of the apex), so every hop is one committed,
-    // always-reachable jump — reachability by construction, not by scattering
-    // random heights.
+    // a fixed fraction of the apex), so every hop is exactly one reachable jump.
     readonly property real jumpHeight: (jumpVel * jumpVel) / (2 * gravity)
     readonly property real climbRatio: 0.75
-    readonly property real climbUnit: Math.round(jumpHeight * climbRatio)   // one climb unit
+    readonly property real climbUnit: Math.round(jumpHeight * climbRatio)
 
     // ---- course generation ----
     // Heights sit on a discrete grid of climb units (single +1, double +2,
-    // bridge ±0), so every hop is exactly one committed jump; the walk itself,
-    // its validation and the three-size pool live in Course.js.
+    // bridge ±0); the walk, its validation and the three-size pool live in
+    // Course.js.
     //
-    // Art is one pattern per size, drawn exactly as authored, so a platform's
-    // collision width is the pattern's own width: the renderer draws a 15-unit
-    // monospace font at a 0.6 em advance, i.e. 9 base units per character
-    // (>>><<< 63, ========= 81, <<<<<<>>>>>> 108, start pad 117, band 126).
+    // Art is one pattern per size, drawn as authored, so a platform's collision
+    // width is the pattern's own width: a 15-unit monospace font at a 0.6 em
+    // advance, 9 base units per character (>>><<< 63, ========= 81,
+    // <<<<<<>>>>>> 108, start pad 117, band 126).
     readonly property real platCharW: 9
     readonly property var platSizes: [7 * platCharW, 9 * platCharW, 12 * platCharW]
     readonly property int platCount: 101          // platforms 0..100
@@ -87,8 +74,7 @@ Item {
     readonly property var mode: Modes.get(modeId)
     onModeIdChanged: if (!Modes.isReady(modeId)) modeId = "race"
 
-    // best clear time per mode (ms). Storage/persistence lives in the panel
-    // (bestFile); the engine only keeps the current values.
+    // best clear time per mode (ms). Persistence lives in the panel (bestFile).
     property var bestByMode: ({})
     function bestFor(id) {
         var v = bestByMode[id];
@@ -97,17 +83,15 @@ Item {
 
     // ---- round state ----
     // platform.sizeClass: 0 = smallest, 1 = middle, 2 = longest, -1 = start
-    // island / finish line — the view picks the paint colour from it
+    // island / finish line. The view picks the paint colour from it.
     property int roundSeed: 0
     property var platforms: []
     property bool roundActive: false
     property real elapsed: 0
     property double startStamp: 0
-    // Pause: the sim clock stops. `paused` freezes tick() outright — players,
-    // rocks, ghosts and the timer all hold still — and resumeGame() shifts
+    // Pause: `paused` freezes tick() outright, and resumeGame() shifts
     // startStamp, so the frozen stretch is never charged to the run. The panel
-    // pauses automatically when it leaves the screen (see Panel.onOpenedChanged)
-    // and P toggles it either way; a new round always starts unpaused.
+    // pauses itself when it leaves the screen; P toggles it either way.
     property bool paused: false
     property double pauseStamp: 0
     property string winner: ""
@@ -137,21 +121,16 @@ Item {
     property real p2StepT: 0
 
     // ---- cameras (tower-climb style, view only) ----
-    // One camera per player. Solo the board is a single 440x500 viewport
-    // driven by camY1/camX1; once player 2 joins the board splits into two
-    // side-by-side viewports (vertical divider, 220x500 each) so both panes
-    // keep the full climb height, and each pane follows its own player in
-    // both axes (smoothed), clamped to the arena. Base units, never scaled;
-    // lives in the engine so all views share state.
+    // One camera per player: solo the board is one 440x500 viewport
+    // (camY1/camX1), and joining splits it into two 220x500 panes. Each follows
+    // its own player in both axes, smoothed and clamped to the arena. Base units.
     property real camY1: 0
     property real camY2: 0
     property real camX1: 0
     property real camX2: 0
     readonly property real camLead: 0.4   // player sits 40% down its viewport
     readonly property real splitViewW: baseW / 2   // split pane width (windowed)
-    // Fullscreen panes are not half-width: the layout has the room, so each
-    // player gets a whole arena-width view (the board grows to 2 x baseW
-    // instead of splitting baseW in two). Set by the view.
+    // Fullscreen panes are arena-width (the board grows to 2 x baseW). Set by the view.
     property bool wideView: false
     readonly property real viewportW: (p2Joined && !wideView) ? splitViewW : baseW
     readonly property real playerW: 20    // glyph hit box width, base units
@@ -163,9 +142,8 @@ Item {
     property bool p2JumpHeld: false
 
     // Double jump: the 2nd jump adds double_jump_height_mult times the 1st
-    // jump's apex height again (velocity scales by sqrt(mult)). mult=1.0 →
-    // the 2nd jump equals one more full single-jump unit. Pressed early it
-    // replaces weaker upward velocity (never cancels it).
+    // jump's apex again (velocity scales by sqrt(mult)); mult=1.0 is one more
+    // full single-jump unit. Pressed early it replaces a weaker rise.
     readonly property real doubleJumpHeightMult: 1.0
     property int p1Jumps: 0   // jumps used since last grounded (0..2)
     property int p2Jumps: 0
@@ -173,21 +151,18 @@ Item {
     property bool p2JumpWas: false
     property bool p1Gliding: false   // jump held while falling (view shows Ô)
     property bool p2Gliding: false
-    property bool p1OnHead: false    // resting on P2's head (view drops the rider
-    property bool p2OnHead: false    // so its feet touch the painted head)
+    property bool p1OnHead: false    // on the other player's head; the view drops
+    property bool p2OnHead: false    // the rider so its feet touch the painted head
     // Ghost trail: where a player dropped off the tower, kept for the rest of
-    // the round so the view can mark that spot instead of pinning the falling
-    // glyph. A ring buffer with stable slots, not a growing list: the view then
-    // has a constant model, so a death never recreates delegates.
+    // the round so the view marks that spot. A ring buffer with stable slots,
+    // not a growing list, so a death never rebuilds the view's delegates.
     readonly property int ghostMax: 99
-    // Ghosts are world-anchored like platforms: their feet sit on their own
-    // world y, so they scroll with the camera instead of riding the bottom edge
-    // of the pane. A fall leaves its marker on this arena y (the floor line);
-    // a hazard death leaves it where the player was standing.
+    // Ghosts are world-anchored like platforms, so they scroll with the camera.
+    // A fall leaves its marker on this arena y (the floor line); a hazard death
+    // leaves it where the player was standing.
     readonly property real ghostY: baseH
-    // slot -> where the dead glyph's *centre* was (float, world units — the view
-    // lays the marker out like the player glyph, so an unrounded centre is what
-    // keeps the ghost on the exact spot)
+    // slot -> the dead glyph's *centre* (float world unit; the view lays the
+    // marker out like the player glyph, so rounding would move it off the spot)
     property var p1GhostX: []
     property var p1GhostY: []      // slot -> world y of the marker's feet
     property var p1GhostSeq: []    // slot -> death index that filled it
@@ -207,8 +182,6 @@ Item {
         return slots[slot] === undefined ? 0 : slots[slot];
     }
 
-    // World y of a marker's feet: the floor line for a fall, the death spot for
-    // a hazard hit (see _crush).
     function ghostYAt(idx, slot) {
         var slots = idx === 0 ? p1GhostY : p2GhostY;
         return slots[slot] === undefined ? ghostY : slots[slot];
@@ -218,7 +191,7 @@ Item {
     // Fixed pool of stable slots, like the ghost ring: the view renders every
     // slot and hides the dead ones, so a spawn never rebuilds delegates. The
     // mode owns the tuning (`mode.hazard`); a mode without that block spawns
-    // nothing and drops whatever is still falling.
+    // nothing and drops what is still falling.
     readonly property int hazardMax: 40    // headroom for the tripled rate
     property var hazX: []          // slot -> centre x (world units, float)
     property var hazY: []          // slot -> centre y
@@ -227,10 +200,9 @@ Item {
     property int hazNext: 0        // round-robin slot for the next rock
     property real hazTimer: 0      // seconds since the last spawn
     property real hazGap: 1.0      // seconds until the next spawn (re-rolled)
-    // LCG state, seeded from the round seed. MUST be real, not int: the state is
-    // an unsigned 32-bit value, and a QML `int` is signed — storing it there
-    // wrapped negative and every draw came out negative (rocks biased to the
-    // left, size classes below 0, angles under the minimum).
+    // LCG state, seeded from the round seed. Must be real, not int: the state is
+    // an unsigned 32-bit value and a QML `int` is signed, so storing it there
+    // wrapped negative.
     property real hazSeed: 1
 
     function hazardSizeAt(slot) {
@@ -251,14 +223,13 @@ Item {
     }
 
     // Which player's colour a slot was stamped with, 0 or 1 (-1 = none). The
-    // view paints a collect mode's drops in exactly this colour, so the drop and
-    // the pickup rule are read from one field.
+    // view paints a collect mode's drops in exactly this colour.
     function hazardTeamAt(slot) {
         var t = hazTeam[slot];
         return (t === 0 || t === 1) ? t : -1;
     }
 
-    // What one catch of a size class is worth (Glyph Hunt). 1 by default, so a
+    // What one catch of a size class is worth (Glyph Hunt); 1 by default, so a
     // mode that only counts catches needs no `points` list.
     function hazardPointsAt(sz) {
         var cfg = mode.hazard;
@@ -280,9 +251,8 @@ Item {
     }
 
     // ---- power-up: the bold "O" a hazard mode releases at platform 50 -------
-    // One per player, down the middle of the arena. Catching it charges them
-    // (they survive one rock hit, glyph glowing in their own colour); the hit
-    // spends the charge and the glyph goes back to normal.
+    // One per player, down the middle of the arena. Catching it charges the
+    // player against one rock hit; the hit spends the charge.
     property var pow50: [false, false]     // slot = owner: the platform-50 one is out?
     property var powLive: [false, false]   // slot = owner: still falling?
     property var powY: [0, 0]              // slot -> centre y (world)
@@ -312,17 +282,15 @@ Item {
         if (idx === 0) p1Bold = false; else p2Bold = false;
     }
 
-    // Release a drop above a given world x / y (the arena middle for the
-    // platform-50 one, the respawn spot for a death reward).
+    // Release a drop above a given world x / y (arena middle, or respawn spot).
     function _dropPowerup(idx, x, y) {
         var l = powLive.slice(); l[idx] = true; powLive = l;
         var ys = powY.slice(); ys[idx] = y; powY = ys;
         var xs = powX.slice(); xs[idx] = x; powX = xs;
     }
 
-    // Every `powerupDeaths` deaths hands one back: it falls onto the player as
-    // they respawn at the start, so a bad round has a way out. Skipped while
-    // they are already charged — a charge does not stack.
+    // Every `powerupDeaths` deaths hands one back. Skipped while the player is
+    // already charged, so a charge does not stack.
     function _rewardDeath(idx) {
         var cfg = Modes.get(modeId).hazard;
         if (!cfg || !cfg.powerupDeaths || cfg.powerupDeaths <= 0) return;
@@ -331,9 +299,7 @@ Item {
         if (boldFor(idx)) return;
         // Dropped from the top, like the platform-50 one enters its pane: world
         // 0 is the top edge of the *start* view (camTargetYFor clamps a
-        // bottom-of-tower camera to 0), so this falls the whole way down the
-        // pane onto the pad the player just respawned on — a visible approach
-        // rather than something handed over on the spot.
+        // bottom-of-tower camera to 0), so it falls down onto the respawn pad.
         var spot = _startSpot(idx);
         _dropPowerup(idx, spot.x + playerW / 2, -24 - playerH / 2);
     }
@@ -344,76 +310,62 @@ Item {
         return n;
     }
 
-    // Platform art: smallest >>><<<, middle =========, longest <<<<<<>>>>>>,
-    // plus the start pad at index 0. The generator maps sizes to 1..3.
+    // The generator maps size classes to glyphs[1..3]; glyphs[0] is the start pad.
     readonly property var glyphs: [
         "~~~~~~~~~~~~~",      // start pad (platform 0)
         ">>><<<",             // smallest size
         "=========",          // middle size
         "<<<<<<>>>>>>"        // longest size
     ]
-    // Finish line: one checkered band of half blocks (upper/lower alternating).
-    // The final platform is drawn with it and its painted top is where the players
-    // land, so the band reads as the line they finish on. One row, not two: a
-    // single row of mixed ▀/▄ is one continuous band with a single ink box, which
-    // is also what the landing ripple needs to place its wave (two rows made the
-    // ripple measure half-block rows and draw its cells against the wrong band).
+    // Finish line: one checkered band of half blocks, upper/lower alternating,
+    // drawn as the final platform the players land on. One row, not two: a mixed
+    // ▀/▄ row is one continuous band with a single ink box, which the landing
+    // ripple needs to place its wave.
     readonly property string finishGlyph: "▀▄▀▄▀▄▀▄▀▄▀▄▀▄"
 
     // ---- the finish orb ----
     //
     // The summit carries a glowing orb instead of a finish *line*: the round ends
-    // when someone touches it, never by merely standing on the last platform. It
-    // hovers a little above that platform's centre — high enough that standing on
-    // it does not count (see orbHover), so you jump into it, and low enough that a
-    // jump from the platform below can catch it on the way up.
+    // when someone touches it, never by standing on the last platform. It hovers
+    // above that platform's centre, high enough that standing on it does not
+    // count (see orbHover), low enough that a jump from below catches it.
     //
-    // Colour and behaviour are fixed: C_YELLOW #E7E8A8 (not themed —
-    // the goal has to read the same in every palette), a slow size pulse and a
-    // faster brightness pulse (the view draws both), a 0.18 s shrink when taken,
-    // and the touching player's glyph growing to the orb's size and lighting up
-    // for the rest of the round.
-    // Modes can opt out of the orb: Glyph Hunt's goal is the score, and the orb
-    // would be an easier second win condition (race up instead of hunting).
+    // Colour and behaviour are fixed: C_YELLOW #E7E8A8, unthemed; a slow size
+    // pulse and a faster brightness pulse (the view draws both); a 0.18 s shrink
+    // when taken; the touching player's glyph grows to the orb's size and lights up.
     readonly property bool orbActive: mode.orb !== false
     readonly property real orbHover: 40   // orb centre above the summit surface
     readonly property real orbR: 9.5      // painted radius at the pulse's smallest
-    // The orb breathes: its radius grows by this much at the pulse peak and its
-    // colour rides the same clock (the view ramps dark orange -> light yellow).
-    // 0.18 is deliberately visible from the far end of the arena — the earlier
-    // 5 % never read as movement.
+    // The orb breathes: its radius grows by this much at the pulse peak, and the
+    // view ramps its colour on the same clock (dark orange -> light yellow).
+    // 0.18 stays visible from the far end of the arena.
     readonly property real orbGrow: 0.18
-    // The pulse lives *here*, derived from the run clock, not as a view
-    // animation: the orb is a target, so whatever is painted has to be what is
-    // collided with. Two rates — the size breathes at 2 rad/s, the
-    // colour at 4 rad/s. Both are 0..1.
+    // The pulse lives *here*, off the run clock, not as a view animation: the orb
+    // is a target, so what is painted is what is collided with. Size 2 rad/s,
+    // colour 4 rad/s, both 0..1.
     property real orbSizePulse: 0
     property real orbBrightPulse: 0
     readonly property real orbRNow: orbR * (1 + orbGrow * orbSizePulse)
     // The orb is touched by the *painted* body, ink height included: standing on
     // the summit leaves a gap (the painted top of an Ö is 17.4 above the feet
-    // line, the orb's bottom 49.5), while any jump puts the ink straight through
-    // it even though the orb's bottom rises with the taller ink: the widest
-    // contact window is orbRNow + paintedH/2 = 20.3 at the pulse peak against a
-    // standing gap of 31.3, so a merely standing player never collects it. Rocks
-    // still use the taller collision box — that rule is tuned and separate.
+    // line, the orb's bottom 49.5), while a jump puts the ink through it even
+    // though the orb's bottom rises with the taller ink: the widest contact
+    // window is orbRNow + paintedH/2 = 20.3 at the pulse peak against a standing
+    // gap of 31.3. Rocks still use the taller collision box.
     readonly property real paintedH: 17.4
     property real orbX: 0
     property real orbY: 0
     property bool orbTaken: false
     property int orbWinner: -1
 
-    // Idle seconds per player: counts while a glyph stands still and nothing is
-    // asked of it, resets the moment it moves, jumps or glides. The view uses it
-    // to put the player to sleep (a small ö that blinks); a paused round does not
-    // step at all, so the count freezes with the rest of the sim.
+    // Idle seconds per player: counts while a glyph stands still, resets the
+    // moment it moves, jumps or glides. A paused round does not step, so it freezes.
     property real p1Idle: 0
     property real p2Idle: 0
 
     // Glyph Hunt (hazard.teams): every falling glyph is stamped with one
-    // player's colour at spawn and the view paints it in that colour. Catching
-    // your own scores the size class's points; the other player's colour kills
-    // you on the spot (see _hazCollect).
+    // player's colour at spawn. Catching your own scores the size class's
+    // points; the other player's colour kills you on the spot (see _hazCollect).
     property int p1Score: 0
     property int p2Score: 0
     property var hazTeam: []
@@ -422,24 +374,18 @@ Item {
     signal orbCollected(int playerIdx)
     // a Glyph Hunt pickup: `correct` says whether it was the player's colour
     signal collected(int playerIdx, bool correct)
-    // a jump left the ground (the ground jump and the air jump alike, as in
-    // one cue per jump)
+    // a jump left the ground, ground or air alike
     signal jumped(int playerIdx)
 
     signal roundStarted()
     signal roundEnded(int playerIdx, real timeSec)
-    // Emitted on every platform landing: the view answers with a landing ripple
-    // on that platform (LandRipple.qml) and squashes the player glyph.
+    // every platform landing; LandRipple.qml ripples that platform, the glyph squashes
     signal landed(int playerIdx, real x, real platX, real platW, real platTop, string glyph)
-    // One footstep: the cadence loop in _stepPlayer fired while this player was
-    // walking on the floor. The view wobbles the glyph, Panel plays the blip.
+    // one footstep, fired by the _stepPlayer cadence loop; the view wobbles, Panel blips
     signal stepped(int playerIdx)
-    // A real side hit between the two players (a rider on a head is not a hit):
-    // Panel answers with the bump thud.
+    // A real side hit between the two players (a rider on a head is not a hit).
     signal bumped()
-    // A hazard (Asterisk Attack's "*" rocks) killed a player: the panel plays
-    // the hit cue, the view has already got the death marker through the ghost
-    // ring.
+    // a hazard killed a player: the panel plays the hit cue, the ghost ring holds the marker
     signal crushed(int playerIdx)
     // Picked up the platform-50 power-up / spent it absorbing a rock
     signal powered(int playerIdx)
@@ -450,9 +396,8 @@ Item {
         return t.toFixed(2) + "s";
     }
 
-    // The walk itself is in Course.js (config + seed in, course out). The tuning
-    // stays here because it is part of the simulation's contract: the view
-    // measures art against platCharW, the jump budget against gravity/jumpVel.
+    // The walk itself is in Course.js (config + seed in, course out). The view
+    // measures art against platCharW and the jump budget against gravity/jumpVel.
     readonly property var courseConfig: ({
         baseW: baseW, platBaseY: platBaseY, climbUnit: climbUnit,
         platSizes: platSizes, platCount: platCount,
@@ -535,9 +480,8 @@ Item {
     }
 
     // ---- player 2: join / leave (round always starts solo) ----
-    // Joining spawns P2 on platform 0 and splits the board into two viewports
-    // with one camera each; both glyphs render in both viewports. Position and
-    // fall counters reset so a joiner starts clean (mid-round joins included).
+    // Joining spawns P2 on platform 0 and splits the board into two viewports,
+    // one camera each. Position and fall counters reset, mid-round joins included.
     function resetP2() {
         var s = platforms.length > 0 ? platforms[0] : { x: 60, y: platBaseY, w: 120 };
         p2x = s.x + s.w - 32; p2y = s.y - playerH; p2vy = 0; p2ground = true;
@@ -583,16 +527,11 @@ Item {
         orbWinner = -1;
     }
 
-    // Glyph Hunt pickup: the glyph is worth its size class's points to the player
-    // whose colour it carries, and kills the player it does not belong to.
-    // Reaching the target ends the round with the same win path as the orb.
     function _hazCollect(idx, slot) {
         var mine = hazTeam[slot] === idx;
         if (!mine) {
             // The other player's colour is a body hit, not a bad catch: the same
-            // thud as shoving the other glyph (onCrushed -> "bump"), and a death on
-            // the spot — ghost marker where it happened, back to platform 0, fall
-            // counted, exactly like a rock.
+            // thud as a shove (onCrushed -> "bump"), and a death on the spot.
             collected(idx, false);
             _crush(idx);
             return;
@@ -605,9 +544,8 @@ Item {
             declareWin(idx, elapsed);
     }
 
-    // The winning catch is worth only what is still missing, so the score lands
-    // on the target instead of stepping over it (a 3-point `$` taken on 9 would
-    // leave the HUD reading 12_10).
+    // The winning catch is worth only what is missing, so the score lands on the
+    // target (a 3-point `$` taken on 9 would otherwise read 12_10).
     function _hazPoints(idx, sz) {
         var pts = hazardPointsAt(sz);
         var target = Modes.get(modeId).hazard.target || 0;
@@ -640,8 +578,8 @@ Item {
 
     // One physics tick. Inputs must be set (p1Vx/p1JumpHeld/...) beforehand.
     function tick(dt) {
-        // Cameras keep running while idle so the split panes frame the spawn
-        // platforms before the round starts (and after P2 joins mid-overlay).
+        // Cameras keep running while idle, so the panes frame the spawn platforms
+        // before the round starts and after a mid-overlay join.
         if (!roundActive) { _updateCam(dt); return; }
         if (paused) return;      // frozen: no sim step, no camera drift, no clock
         elapsed = (Date.now() - startStamp) / 1000;
@@ -651,11 +589,11 @@ Item {
         if (p2Joined) {
             _stepPlayer(1, dt);
             _separateSide(dt);      // players are solid to each other sideways
-            _carryRiders(dt);       // …and the head is a platform
+            _carryRiders(dt);       // the head is a platform
         }
-        _stepHazards(dt);       // rocks fall and may crush a player…
-        _stepOrb();             // …and the summit's orb ends the round on touch
-        _updateCam(dt);         // …so the camera update comes after the respawn
+        _stepHazards(dt);       // rocks fall and may crush
+        _stepOrb();             // the orb ends the round on touch
+        _updateCam(dt);         // after the respawn
         var m = Modes.get(modeId);
         if (m.onTick) m.onTick(engine);
     }
@@ -687,18 +625,16 @@ Item {
 
     // ---- player-on-player collision ----
     // Horizontal contact uses the *painted* glyph span, never the 20-unit
-    // collision box: the box has invisible corners that would otherwise hold a
-    // rider in mid-air diagonally above the other player. Both bodies are the
-    // same width, so comparing the box left edges compares the glyph centres.
+    // collision box, whose invisible corners would hold a rider diagonally above
+    // the other player. Both bodies are the same width, so left edges compare centres.
     function _bodiesOverlap(ax, bx) {
         return Math.abs(ax - bx) <= sideBodyW;
     }
 
-    // True if idx's feet are resting on the other player's head: horizontal
-    // overlap (same forgiving test as platforms) and the feet within a small
-    // band around the carrier's top edge. The band grows with the carrier's
-    // upward speed so a rising carrier lifts the rider instead of leaving them
-    // inside, and a rising *rider* is never captured (they can jump off).
+    // True if idx's feet rest on the other player's head: horizontal overlap
+    // (the same forgiving test as platforms) and feet inside a small band around
+    // the carrier's top edge. The band grows with the carrier's upward speed, so
+    // a rising carrier lifts the rider, and a rising *rider* is never captured.
     function _carriedByOther(idx, dt) {
         if (!p2Joined) return false;
         var isP1 = idx === 0;
@@ -715,7 +651,6 @@ Item {
         return feet >= oy - 6 && feet <= oy + 8 + lift;
     }
 
-    // Keep riders glued to the carrier's head while the carrier walks or jumps.
     function _carryRiders(dt) {
         p1OnHead = _carriedByOther(0, dt);
         p2OnHead = _carriedByOther(1, dt);
@@ -727,13 +662,9 @@ Item {
         }
     }
 
-    // Players are solid sideways: overlapping bodies are pushed apart (half
-    // each), so walking into the other player shoves them instead of passing
-    // through. Only a real side hit counts — boxes that merely touch vertically
-    // (a rider standing on a head) are left to _carryRiders.
+    // Players are solid sideways: overlapping bodies are pushed apart half each.
+    // Vertical touches (a rider on a head) are left to _carryRiders.
     function _separateSide(dt) {
-        // One hit per contact: edge-detected, then a cooldown, so two players
-        // leaning on each other keep being pushed apart but the thud fires once.
         hitCd = Math.max(0, hitCd - dt);
         var overlapY = Math.min(p1y + playerH, p2y + playerH) - Math.max(p1y, p2y);
         var overlapX = sideBodyW - Math.abs(p1x - p2x);
@@ -750,17 +681,16 @@ Item {
         p2x = _clampX(p2x - dir * push);
     }
 
-    // Record where a player dropped off the tower: fill the next ring slot
-    // (reusing the oldest once ghostMax deaths have happened) and let the view
-    // re-read the slots. `x` is the dead glyph's centre and `y` the world y of
-    // its feet (see p1GhostX/p1GhostY).
+    // Record where a player dropped off the tower: fill the next ring slot,
+    // reusing the oldest once ghostMax deaths have happened. `x` is the dead
+    // glyph's centre, `y` the world y of its feet.
     function _addGhost(idx, x, y) {
         var deaths = idx === 0 ? p1GhostDeaths : p2GhostDeaths;
         var slot = deaths % ghostMax;
         var xs = (idx === 0 ? p1GhostX : p2GhostX).slice();
         var ys = (idx === 0 ? p1GhostY : p2GhostY).slice();
         var seqs = (idx === 0 ? p1GhostSeq : p2GhostSeq).slice();
-        xs[slot] = x;             // no rounding: halves of a unit are what the eye reads as 'the same spot'
+        xs[slot] = x;             // no rounding: half a unit is the same spot to the eye
         ys[slot] = y;
         seqs[slot] = deaths;
         if (idx === 0) {
@@ -771,30 +701,26 @@ Item {
     }
 
     // ---- hazards: spawn, fall, hit (Asterisk Attack) ----
-    // The generator is the same small LCG Course.js uses, seeded from the round
-    // seed, so a round's rock pattern is reproducible instead of Math.random.
+    // The same small LCG Course.js uses, seeded from the round seed: reproducible rocks.
     function _hazRand() {
         // Math.imul keeps the 32-bit product exact; >>> 0 makes it unsigned
         hazSeed = ((hazSeed * 1664525 + 1013904223) >>> 0);
         return hazSeed / 4294967296;
     }
 
-    // How far the leader has climbed, 0..1: drives the spawn rate and the fall
-    // speed, so the tower gets meaner the higher you get.
+    // How far the leader has climbed, 0..1: drives the spawn rate and fall speed.
     function _hazLead() {
         var top = p2Joined ? Math.max(p1Plat, p2Plat) : p1Plat;
         return platCount > 1 ? top / (platCount - 1) : 0;
     }
 
-    // Rocks enter above the *higher* pane, so whoever is ahead always sees them
-    // come in off the top edge; the other player meets them on the way up.
+    // Rocks enter above the *higher* pane, so whoever is ahead sees them off the top edge.
     function _hazSkyY() {
         var top = (p2Joined && camY2 < camY1) ? camY2 : camY1;
         return top - 24;
     }
 
-    // One glyph of a given size class, stamped for one player. Split out of
-    // _spawnHazard so the collect modes can drop a matched *pair* per gap.
+    // One glyph of a given size class, stamped for one player.
     function _emitHazard(cfg, sz, team) {
         var slot = hazNext;
         var half = cfg.sizes[sz] / 2;
@@ -805,8 +731,7 @@ Item {
         var ts = hazTeam.slice();
         ts[slot] = team;
         hazTeam = ts;
-        // diagonal from the first tick: |angle| in [angleMin, angleMax], either
-        // direction, so no glyph ever comes straight down
+        // diagonal from the first tick: |angle| in [angleMin, angleMax], either direction
         var deg = cfg.angleMin + _hazRand() * Math.max(0, cfg.angleMax - cfg.angleMin);
         var rad = deg * Math.PI / 180;
         as[slot] = _hazRand() < 0.5 ? -rad : rad;
@@ -817,15 +742,12 @@ Item {
     function _spawnHazard(cfg) {
         var sz = Math.floor(_hazRand() * cfg.sizes.length);
         if (sz > cfg.sizes.length - 1) sz = cfg.sizes.length - 1;
-        // Collect modes spawn a matched PAIR per gap: one glyph in each player's
-        // colour at the same size class, at independent positions. Both players
-        // then get the same offer — the fairness rule this mode is built on — and
-        // solo play keeps the single glyph, which is always player 1's.
+        // Collect modes spawn a matched PAIR per gap: one glyph per colour at the
+        // same size class, independent positions. Solo keeps one, always P1's.
         _emitHazard(cfg, sz, 0);
         if (cfg.teams && p2Joined) _emitHazard(cfg, sz, 1);
         hazTimer = 0;
-        // rate ramps with the leader (gapMin at the top) and jitters ±25 %, so
-        // the barrage stays "here and there" instead of metronomic
+        // rate ramps with the leader (gapMin at the top) and jitters ±25 %
         var gap = cfg.gapMin + (cfg.gapMax - cfg.gapMin) * (1 - _hazLead());
         hazGap = gap * (0.75 + 0.5 * _hazRand());
     }
@@ -837,8 +759,7 @@ Item {
             return;
         }
         var speed = cfg.fallSpeed + cfg.speedRamp * _hazLead();
-        // Free a rock once it is past the bottom of the lowest pane (and past
-        // the arena floor line, which is as low as anything can be needed).
+        // Free a rock past the bottom of the lowest pane, and past the floor line.
         var camLow = (p2Joined && camY2 > camY1) ? camY2 : camY1;
         var floorWorld = Math.max(baseH, camLow + baseH);
 
@@ -856,8 +777,7 @@ Item {
                 ss[s] = -1;
                 continue;
             }
-            // the slide keeps its angle: mirror it at the arena walls so a rock
-            // can never drift out of the tower (the barrage stays dense)
+            // the slide keeps its angle: mirrored at the walls so it stays in the tower
             var nx = xs[s] + speed * Math.sin(ang) * dt;
             if (nx - half < 0) {
                 nx = half;
@@ -888,8 +808,7 @@ Item {
         return cam - 24;
     }
 
-    // Release, fall and catch. The drop is owner-bound: only the player it was
-    // released for can take it, so a shared arena stays fair.
+    // Release, fall and catch. Owner-bound: only its own player can take it.
     function _stepPowerups(dt) {
         var cfg = Modes.get(modeId).hazard;
         if (!cfg || cfg.powerupPlat === undefined) {
@@ -930,9 +849,8 @@ Item {
         if (changed) { pow50 = take; powLive = live; powY = ys; powX = xs; }
     }
 
-    // A rock overlapping the *painted* body (not the invisible collision box,
-    // same rule as player-vs-player) crushes the player: the rock is spent, the
-    // player leaves a marker where they stood and restarts from platform 0.
+    // A rock overlapping the *painted* body (not the collision box, the same rule
+    // as player-vs-player) crushes the player: the rock is spent and _crush runs.
     function _hazHits(cfg) {
         var ss = hazSize.slice();
         var spent = false;
@@ -952,12 +870,11 @@ Item {
                         break;          // one glyph per player per tick
                     }
                     if (boldFor(idx)) {
-                        // charged: the rock is absorbed. The charge is spent, so
-                        // the glyph drops back to its normal look…
+                        // charged: the rock is absorbed and the charge is spent
                         if (idx === 0) p1Bold = false; else p2Bold = false;
                         shielded(idx);
                     } else {
-                        _crush(idx);        // …without a charge it is a death
+                        _crush(idx);        // without a charge it is a death
                     }
                     break;              // one rock per player per tick
                 }
@@ -966,9 +883,8 @@ Item {
         if (spent) hazSize = ss;
     }
 
-    // Death by hazard: marker at the death spot (its feet, so the glyph sits
-    // exactly where the player stood), count the death and restart from the
-    // spawn — the same consequence as a fall, minus the trip down.
+    // Death by hazard: marker at the death spot, death counted, restart from the
+    // spawn, the same as a fall.
     function _crush(idx) {
         var isP1 = idx === 0;
         _addGhost(idx, (isP1 ? p1x : p2x) + playerW / 2, (isP1 ? p1y : p2y) + playerH);
@@ -984,14 +900,13 @@ Item {
         _rewardDeath(idx);
         var m = Modes.get(modeId);
         if (m.onFall && m.onFall(engine, idx)) {
-            // mode may end the round on a death (future modes)
+            // the mode may end the round on a death
             roundActive = false;
             roundEnded(idx, elapsed);
         }
     }
 
-    // Where a respawn puts a player: platform 0, at the same offsets the round
-    // start uses. Shared by the fall path and by a hazard death.
+    // Where a respawn puts a player: platform 0, at the round start's offsets.
     function _startSpot(idx) {
         var plats = platforms;
         var s = plats.length > 0 ? plats[0] : { x: 60, y: platBaseY, w: 120 };
@@ -1005,16 +920,15 @@ Item {
         return x;
     }
 
-    // World y a camera should show at the top edge of player idx's viewport.
-    // Panes are always full height (solo = whole board, split = 220x500 sides),
-    // so the top edge never goes below the arena floor.
+    // World y a camera shows at the top edge of player idx's viewport. Panes are
+    // always full height, so the top edge never goes below the arena floor.
     function camTargetYFor(idx) {
         var t = (idx === 0 ? p1y : p2y) - baseH * camLead;
         return t > 0 ? 0 : t;
     }
 
-    // World x a camera should show at the left edge of player idx's viewport:
-    // the player stays centered in its pane, clamped to the arena sides.
+    // World x at the left edge of player idx's viewport: the player stays centered
+    // in its pane, clamped to the arena sides.
     function camTargetXFor(idx) {
         var vw = viewportW;
         var maxLeft = baseW - vw;
@@ -1064,8 +978,6 @@ Item {
                 jumped(idx);
             }
         }
-        // Glide: holding jump while falling (after at least one jump) softens
-        // gravity and caps the descent speed.
         var gliding = jumps >= 1 && !ground && vy > 0 && jump;
         vy += gravity * (gliding ? glideGravityMult : 1.0) * dt;
         if (gliding && vy > glideFall) vy = glideFall;
@@ -1087,19 +999,16 @@ Item {
                     ground = true;
                     jumps = 0;
                     if (isP1) p1Plat = i; else p2Plat = i;
-                    // only a real impact: a resting glyph re-enters this branch
-                    // every tick (its feet are re-snapped)
+                    // only a real impact: a resting glyph re-enters this branch every tick
                     if (!wasGround) landed(idx, x, p.x, p.w, top, p.glyph);
-                    // no win here: the summit is only the orb's pedestal, the
-                    // orb contact in _stepOrb() is the end of the round
+                    // no win here: the summit is the orb's pedestal, _stepOrb() ends it
                     var m = Modes.get(modeId);
                     if (m.onLand) m.onLand(engine, idx, i);
                     break;
                 }
             }
         }
-        // player-on-player: land on the other glyph's head exactly like on a
-        // platform, so a rider can stand on the carrier and jump off again
+        // player-on-player: land on the other glyph's head exactly like on a platform
         if (!ground && vy >= 0 && p2Joined) {
             var oy2 = isP1 ? p2y : p1y;
             var ox2 = isP1 ? p2x : p1x;
@@ -1111,16 +1020,14 @@ Item {
                 jumps = 0;
             }
         }
-        // Crossed the arena floor line: the ghost row is anchored on that same
-        // line, so the marker is placed here — the exact spot the fall left the
-        // arena. Recording it later (in the reset below, 30 units further down)
-        // let the sideways steer of those extra ticks offset the marker.
+        // Crossed the arena floor line, the same line the ghost row is anchored
+        // on, so the marker goes here. Recording it after the reset below (30
+        // units down) let those extra ticks' sideways steer offset the marker.
         if (roundActive && prevFeet <= baseH && feet > baseH)
             _addGhost(isP1 ? 0 : 1, x + playerW / 2, ghostY);   // the floor line
 
         if (roundActive && y > baseH + 30) {
-            // Fell off the bottom of the tower: back to platform 0 (full
-            // progress reset), count the fall.
+            // Fell off the bottom of the tower: back to platform 0, fall counted.
             var sp = _startSpot(idx);
             x = sp.x; y = sp.y;
             vy = 0; ground = true;
@@ -1130,16 +1037,15 @@ Item {
             _rewardDeath(idx);
             var m2 = Modes.get(modeId);
             if (m2.onFall && m2.onFall(engine, idx)) {
-                // mode may end the round on a fall (future modes)
+                // the mode may end the round on a fall
                 roundActive = false;
                 roundEnded(idx, elapsed);
             }
         }
         var airGlide = gliding && !ground && vy > 0;
-        // Footstep cadence: only while walking along a floor — a player pinned
-        // against the arena edge still counts, since the velocity is set even
-        // when a wall stops the movement. Stopping resets the timer, so the next
-        // walk steps immediately.
+        // Footstep cadence: only while walking along a floor. A player pinned
+        // against the arena edge still counts, because the velocity is set even
+        // when a wall stops the movement. Stopping resets the timer.
         var stepT = isP1 ? p1StepT : p2StepT;
         if (ground && vx !== 0) {
             stepT -= dt;
@@ -1150,9 +1056,6 @@ Item {
         } else {
             stepT = 0;
         }
-        // Idle seconds: standing still on a floor with nothing asked of it. Any
-        // intent (walk, jump, glide), a fall or a fresh round resets it; the view
-        // sleeps the glyph after view.idleSeconds of it.
         var idle = isP1 ? p1Idle : p2Idle;
         idle = (ground && vx === 0 && !jump && !airGlide) ? idle + dt : 0;
         if (isP1) {
@@ -1165,8 +1068,7 @@ Item {
     }
 
     Component.onCompleted: {
-        // a restore can hand us a mode id this build no longer has (renamed or
-        // dropped): snap back before the first round is built
+        // a restore can hand us a mode id this build no longer has: snap back first
         if (!Modes.isReady(modeId)) modeId = "race";
         startRound();
         roundActive = false; // show ready overlay first

@@ -6,14 +6,12 @@ import "Plain.js" as Plain
 // The bar icon.
 //
 // BarIconButton draws a fixed icon slot and hides its text, so the live label
-// ("99_100") has to size the slot itself: measure it at the bar font, add a
-// little breathing room, never go below the standard slot. That is also why the
-// label must not change for anything transient — a different length moves the
-// slot, and the panel is anchored to this button, so the whole panel would
-// shift. The paused state therefore lives in the tooltip, not in the label.
+// ("99_100") has to size the slot: measured at the bar font plus a little
+// padding, never below the standard slot. The label must therefore not change
+// for anything transient: a different length moves the slot, and the panel is
+// anchored to this button. Transient state lives in the tooltip instead.
 //
-// Left click toggles the panel; a right click only reports up (`reloadRequested`)
-// — the open flag belongs to the panel so bar clicks can toggle it.
+// Left click toggles the panel; a right click only reports up.
 BarIconButton {
     id: barButton
 
@@ -27,9 +25,8 @@ BarIconButton {
     readonly property real slotW: Math.max(Style.bar.iconSlot,
         Math.ceil(labelMetrics.width) + 2 * barButton.labelPadX)
 
-    // Host-rendered tooltip: the words are ours, the sink is the shell's, so the
-    // line is flattened and capped first (ui/Plain.js). It is where the transient
-    // state goes — running/paused, and whether a pad is feeding the game.
+    // host-rendered, so the line is flattened and capped first (ui/Plain.js);
+    // this is where the transient state goes: running/paused, pad or keyboard
     readonly property string statusLine: game.mode.name
         + (game.roundActive ? (game.paused ? " · paused" : " · running") : "")
         + " · " + (barButton.panel.pad && barButton.panel.pad.connected

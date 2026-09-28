@@ -1,9 +1,8 @@
 import QtQuick
 
 // The win shower: character bits fall from the top of whatever this fills and
-// fade around the middle. Decorative only — the animation runs while `running`,
-// and each bit's path comes from cheap hashes of its index, so no state and no
-// random source are needed.
+// fade around the middle. Decorative only: the animation runs while `running`,
+// and each bit's path is a hash of its index, so there is no state to keep.
 Item {
     id: confetti
 

@@ -5,23 +5,22 @@ Why this exists instead of FileView: a pathname is not an object. Reading a
 predictable path with `FileView`, `cat`, `open(path)` or `json.load(open(path))`
 follows a symlink someone else planted, blocks forever on a planted FIFO, and
 pulls the whole file into the shell process before any size check runs. The
-shell is one long-lived process hosting every widget, so it is the last thing on
-the desktop that may block or allocate without bound.
+shell is one long-lived process hosting every widget, and it may not block or
+allocate without bound.
 
-So every read and write here goes through a descriptor that is validated and
-then used:
+So every read and write goes through a descriptor that is validated, then used:
 
   * directories are walked from the passwd home one component at a time with
-    held dirfds, each component `O_NOFOLLOW|O_DIRECTORY`, `fstat`-checked for
-    owner and type; the plugin's own leaf is forced to 0700 and its contents
-    repaired (anything that is not a regular file is removed, files get 0600)
+    held dirfds, each component `O_NOFOLLOW|O_DIRECTORY` and `fstat`-checked for
+    owner and type; the plugin's own leaf is forced to 0700 and repaired
+    (non-regular entries removed, files 0600)
   * reads open `O_RDONLY|O_NOFOLLOW|O_NONBLOCK`, `fstat` the descriptor (regular
     file, our uid, one link, owner-only mode, size) and read at most
     MAX_BYTES + 1 bytes, so oversize is an error rather than a truncation
   * writes create a fresh random 0600 file with `O_CREAT|O_EXCL|O_NOFOLLOW` in
-    the destination directory, write through that descriptor, `fsync`, then
-    `rename` over the destination (which replaces a symlink instead of writing
-    through it) and `fsync` the directory
+    the destination directory, write through it, `fsync`, `rename` it over the
+    destination (replacing a symlink rather than writing through it) and
+    `fsync` the directory
 
 Modes:
 
@@ -29,8 +28,8 @@ Modes:
     ojumpy-state.py state write    # <- the same document on stdin
     ojumpy-state.py theme read     # -> the active Omarchy theme's colors.toml
 
-The write mode validates that stdin is a JSON object and that it only carries
-the keys this plugin stores, so a corrupted or hostile document is refused
+The write mode validates that stdin is a JSON object and keeps only the keys
+and shapes this plugin stores, so a corrupted or hostile document is refused
 rather than installed. Every failure is a non-zero exit: nothing falls back to
 "absent, so start fresh".
 """
@@ -49,8 +48,8 @@ _STATE_NAME = "game.json"
 
 # plugin state: ~/.local/state/ojumpy  (created if missing, forced 0700)
 STATE_CHAIN = (".local", "state", "ojumpy")
-# theme read: ~/.local/state/omarchy/current/theme/colors.toml (read-only, not
-# ours: the chain is only validated, never re-moded or repaired)
+# theme read: ~/.local/state/omarchy/current/theme/colors.toml (not ours:
+# read-only, the chain is only validated, never re-moded or repaired)
 THEME_CHAIN = (".local", "state", "omarchy", "current", "theme")
 THEME_FILE = "colors.toml"
 
@@ -62,8 +61,8 @@ def _ok_component(name):
 def _repair_dir(dir_fd):
     """Make the plugin's own directory trustworthy: no symlinks, FIFOs or
     subdirectories inside it, and owner-only modes on what stays. Runs on every
-    call, because a directory that is 0700 today can still hold a 0644 file or
-    an entry somebody else put there."""
+    call, because a 0700 directory can still hold a 0644 file or an entry
+    somebody else put there."""
     for entry in os.listdir(dir_fd):
         try:
             st = os.stat(entry, dir_fd=dir_fd, follow_symlinks=False)
@@ -101,9 +100,9 @@ def open_dir_chain(parts, create_missing=False, repair_leaf=False):
                 nfd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
                               dir_fd=fd)
             except FileNotFoundError:
-                # Our own state path (.local/state/ojumpy) is created on demand, a
-                # component at a time, 0700: a fresh machine has to work, and the
-                # foreign theme chain stays strictly read-only.
+                # .local/state/ojumpy is created on demand, a component at a
+                # time at 0700, so a fresh machine works and the theme chain
+                # stays strictly read-only.
                 if not create_missing:
                     raise
                 os.mkdir(name, 0o700, dir_fd=fd)
@@ -192,8 +191,8 @@ def clean_state(payload):
                 clean[k] = int(v)
         out["best"] = clean
     out["help"] = bool(payload.get("help"))
-    # Controller support is opt-in and therefore a stored preference: a missing
-    # key means off, so a fresh install never reads an input device at all.
+    # opt-in, so a missing key means off and a fresh install never reads an
+    # input device at all
     out["pad"] = bool(payload.get("pad"))
     return out
 
@@ -214,8 +213,8 @@ def main():
                 sys.stdout.write(raw.decode("utf-8", "strict"))
                 return 0
             # one bounded line, not read-to-EOF: the caller writes the document
-            # and a newline, and a caller that forgets to close the pipe must not
-            # be able to leave this process waiting forever on a save
+            # and a newline, and a caller that never closes the pipe must not
+            # leave this process waiting forever on a save
             payload = sys.stdin.buffer.readline(MAX_BYTES + 1)
             if len(payload) > MAX_BYTES:
                 sys.stderr.write("state write: payload too large\n")
@@ -242,8 +241,8 @@ def main():
 
 
 if __name__ == "__main__":
-    # A refused read/write is an error, not "absent, so start fresh": exit
-    # non-zero with one line a human can read rather than a traceback.
+    # A refused read/write is an error, not "absent, so start fresh": one line a
+    # human can read and a non-zero exit, never a traceback.
     try:
         sys.exit(main())
     except (PermissionError, OSError, ValueError) as e:

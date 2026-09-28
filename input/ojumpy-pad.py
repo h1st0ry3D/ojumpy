@@ -3,8 +3,8 @@
 
 Reads Linux evdev event devices directly, merges all gamepad-like
 devices into one virtual 2-player state and streams it to Panel.qml as one
-compact JSON line per change (plus a 2 s heartbeat), on stdout — there is no
-state file and no path for anyone to plant anything at.
+compact JSON line per change (plus a 2 s heartbeat), on stdout, so there is no
+state file and no fixed path for anyone to plant anything at.
 
 Mapping (single Xbox pad hosts both racers):
   P1 (0) move : left stick X  (ABS_X) + D-pad X (HAT0X / BTN_DPAD_*)
@@ -18,13 +18,12 @@ Mapping (single Xbox pad hosts both racers):
   Select (314) / Mode (316): open/close the mode picker, on any pad
   R3 (318)    : fullscreen, on any pad (rising edge; panel must be open)
 
-Second physical pad (if any): its left stick + A feed P2 as well, so
-2 pads = 1 racer each. Everything merges, no config needed.
+A second physical pad, if any, feeds P2 from its left stick + A, so two pads give
+one racer each and everything merges without config.
 
 Access to /dev/input/event* is the desktop's own grant: udev tags joystick
-devices and logind gives the active session user an ACL on them, so on an
-Omarchy install nothing has to be set up. No third-party deps, and no state
-file is written — the panel reads this process's stdout.
+devices and logind gives the active session an ACL on them, so nothing has to be
+set up. The panel reads this process's stdout rather than a state file.
 """
 import argparse
 import glob
@@ -46,13 +45,10 @@ BTN_SELECT, BTN_START, BTN_MODE = 314, 315, 316
 BTN_THUMBL, BTN_THUMBR = 317, 318          # L3 / R3: clicking the sticks
 BTN_DPAD_UP, BTN_DPAD_DOWN, BTN_DPAD_LEFT, BTN_DPAD_RIGHT = 544, 545, 546, 547
 
-# A device is a gamepad when the *desktop* says so: udev records the answer in
-# /run/udev/data, and ID_INPUT_JOYSTICK is the same property that makes logind
-# give the active session access. So the game reads exactly what the desktop
-# granted, with no name matching or capability guessing to keep in sync.
-#
-# Scope: Xbox/XInput pads (in-kernel xpad; xpadneo for Xbox One/Series over
-# Bluetooth or the dongle) — what ID_INPUT_JOYSTICK covers on an Omarchy box.
+# A device is a gamepad when udev says so, from ID_INPUT_JOYSTICK in
+# /run/udev/data, the same property that makes logind grant the active session
+# access. Scope: Xbox/XInput pads (in-kernel xpad; xpadneo for Xbox One/Series
+# over Bluetooth or the dongle).
 MAX_UDEV_BYTES = 1 << 16
 
 
@@ -64,8 +60,8 @@ def parse_devices():
     needed; capability bitmaps are not parsed because device selection is udev's
     job (see udev_props / is_gamepad)."""
     try:
-        # kernel file, fixed path (nothing can plant a symlink in /proc), read
-        # with a ceiling anyway so this can never grow into the shell's memory
+        # kernel file, fixed path in /proc, so nothing can plant a symlink
+        # there; read with a ceiling anyway
         with open("/proc/bus/input/devices", errors="replace") as f:
             text = f.read(1 << 20)
     except OSError:
@@ -92,8 +88,7 @@ def parse_devices():
 def udev_props(path):
     """The properties udev recorded for this event node, or {} when there is
     none to read. /run/udev/data is udev's own database (world-readable, managed
-    by udevd, keyed by the device's major:minor) — reading it is not a guess
-    about the device, it is the desktop's own answer."""
+    by udevd, keyed by the device's major:minor), read under MAX_UDEV_BYTES."""
     try:
         st = os.stat(path)
         key = "/run/udev/data/c%d:%d" % (os.major(st.st_rdev), os.minor(st.st_rdev))
@@ -111,8 +106,8 @@ def udev_props(path):
 
 def is_gamepad(info, props):
     """Joystick by udev's classification (and therefore by the ACL logind gave
-    this session), or — when udev's database is unavailable — by the kernel's
-    own: only joystick-class devices get a jsN handler."""
+    this session), or by the kernel's own when udev's database is unavailable,
+    where only joystick-class devices get a jsN handler."""
     if props.get("ID_INPUT_JOYSTICK") == "1":
         return True
     return bool(info.get("js"))
@@ -132,7 +127,7 @@ def open_devices():
             continue
         try:
             # read-only, non-blocking (the reader must never stall on a node),
-            # close-on-exec, and no following of anything at the path
+            # close-on-exec, no following of anything at the path
             fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC | os.O_NOFOLLOW)
         except OSError as e:
             print(f"ojumpy-pad: cannot open {path} ({info['name']}): {e}",
@@ -178,10 +173,8 @@ class PadState:
         v = self.rx if abs(self.rx) >= 0.35 else 0.0
         return max(-1.0, min(1.0, v))
 
-    # Vertical moves are menus only (the racers move on X alone), so these
-    # answer "is this pad asking to go up?" from every source at once: a
-    # horizontal axis has to pick one source, a menu does not. Linux pads
-    # report up as negative on both the sticks and the hat.
+    # Vertical moves are menus only (the racers move on X alone), and up is
+    # negative on both the sticks and the hat, so every source counts at once.
     def up_pressed(self):
         return bool(self.dpad_u or self.haty < 0
                     or self.ly <= -0.35 or self.ry <= -0.35)
@@ -238,8 +231,8 @@ def norm(v):
 
 
 def apply_event(state, etype, code, value):
-    """Fold one evdev event into a pad's state (pure, so the mapping can be
-    tested without a device). Unknown codes are ignored on purpose: a pad
+    """Fold one evdev event into a pad's state. Pure, so the mapping can be
+    tested without a device. Unknown codes are ignored on purpose: a pad
     reports plenty of things this game has no use for."""
     if etype == EV_ABS:
         if code == ABS_X:
@@ -263,11 +256,11 @@ def apply_event(state, etype, code, value):
         elif code in (BTN_WEST, BTN_NORTH):
             state.x = pressed
         elif code == BTN_START:
-            state.start = pressed          # Panel: pause
+            state.start = pressed
         elif code in (BTN_SELECT, BTN_MODE):
-            state.select = pressed         # Panel: mode picker
+            state.select = pressed
         elif code == BTN_THUMBR:
-            state.r3 = pressed             # Panel: fullscreen
+            state.r3 = pressed
         elif code == BTN_DPAD_LEFT:
             state.dpad_l = pressed
         elif code == BTN_DPAD_RIGHT:
@@ -290,9 +283,8 @@ def emit(state):
     """One compact JSON line per update, flushed.
 
     There is deliberately no state file: a fixed path plus a reader in the shell
-    is a symlink/FIFO hazard and needs a poll or inotify to stay fresh. A pipe
-    has none of that — the panel reads its own child's stdout, one line at a
-    time."""
+    is a symlink/FIFO hazard and needs a poll or inotify to stay fresh. The panel
+    reads its own child's stdout instead, one line at a time."""
     try:
         sys.stdout.write(json.dumps(state, separators=(",", ":")) + "\n")
         sys.stdout.flush()
@@ -302,7 +294,7 @@ def emit(state):
 
 def log_line(logf, text):
     """Opt-in debug log (-–log PATH), off by default: per-event file I/O adds
-    input latency. Opened O_NOFOLLOW|O_APPEND|O_CREAT at mode 0600 so it can
+    input latency. Opened O_NOFOLLOW|O_APPEND|O_CREAT at mode 0600, so it can
     neither follow a planted symlink nor be world-readable."""
     if not logf:
         return
@@ -327,7 +319,7 @@ def log_state(logf, state):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--log", default="")  # disabled by default: per-event file I/O adds input latency; pass a path to enable
+    ap.add_argument("--log", default="")  # per-event file I/O adds input latency
     ap.add_argument("--scan-interval", type=float, default=3.0)
     ap.add_argument("--hz", type=float, default=60.0)
     args = ap.parse_args()
@@ -335,7 +327,7 @@ def main():
     devs = open_devices()
     states = {d["fd"]: PadState() for d in devs}
     last_write, last_scan = 0.0, time.monotonic()
-    # the panel gets a first line immediately, so it never renders an unknown pad
+    # the panel gets a first line immediately, never an unknown pad
     emit(disconnected())
     last_payload = json.dumps(disconnected(), sort_keys=True)
 

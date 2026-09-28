@@ -3,11 +3,9 @@ import qs.Commons
 
 // Ojumpy game board — viewport layout over the shared engine state.
 //
-// Solo: one BoardView covering the whole arena (camX1/camY1). Player 2 joins
-// (J): two side-by-side BoardViews split by a vertical divider so both panes
-// keep the full climb height — left pane = P1's camera, right = P2's, and both
-// panes render both players. Cameras are per-player, so the two views scroll
-// independently in x and y.
+// Solo: one BoardView over the whole arena (camX1/camY1). Player 2 joins (J):
+// two side-by-side views split by a vertical divider, left = P1's camera,
+// right = P2's, and both panes render both players.
 //
 // Resizing/fullscreen never disturbs the game: the engine simulates in fixed
 // base units and owns the cameras. Read-only over the engine.
@@ -60,7 +58,6 @@ Rectangle {
         }
     }
 
-    // split divider — left pane is player 1's viewport, right player 2's
     Rectangle {
         visible: board.split
         width: 2
@@ -71,20 +68,15 @@ Rectangle {
     }
 
     // ---- overlays: idle ("pause") card + win card ----
-    //
-    // Both cards are laid out from their content: the text column has a bounded
-    // width, so lines wrap inside the border. Everything scales with the board
-    // (scaleY = shell scale × fullscreen boost), so the cards stay proportional
-    // to the arena art.
+    // laid out from their content; the text column is width-bounded so lines
+    // wrap inside the border, and everything scales with the board
     readonly property real overlayScale: Math.max(0.6, board.scaleY)
     readonly property real overlayPad: Math.round(12 * board.overlayScale)
     // 0.6 em per character is the monospace advance the whole board is built on
     readonly property real overlayTextW: Math.max(160, board.width - 2 * board.overlayPad - 24)
 
-    // idle overlay: ready card, shown whenever no round is running (the "pause"
-    // screen). Structure: mode + who is playing, the rule in one line, then the
-    // controls as a compact key/action grid — the long prose lives in the
-    // panel's "Ojumpy manual" section, not here.
+    // idle overlay: ready card, shown whenever no round is running. Mode, who is
+    // playing, the rule, then the controls as a grid; the prose is in the panel.
     Rectangle {
         id: idleCard
         anchors.centerIn: parent
@@ -126,7 +118,7 @@ Rectangle {
                 font.pixelSize: 11 * board.overlayScale
             }
 
-            // thin rule between the rule of the game and its controls
+            // thin rule between the tagline and the control list
             Rectangle {
                 width: parent.width
                 height: 1
@@ -156,8 +148,7 @@ Rectangle {
                 }
                 Text {
                     textFormat: Text.PlainText
-                    // same words as the panel's button, so the card and the button
-                    // row name the layout identically: split screen, or solo
+                    // same words as the panel's button, so card and button row agree
                     text: board.engine.p2Joined ? "solo" : "split screen"
                     color: board.themeGreen
                     font.family: "monospace"
@@ -192,9 +183,8 @@ Rectangle {
 
     // ---- pause overlay ----
     //
-    // Same card treatment as the ready and win overlays, so a frozen round can
-    // never be mistaken for a live one: the arena keeps its last frame behind
-    // this card, rocks included (the engine stops stepping while paused).
+    // same card treatment as the other overlays; the engine stops stepping while
+    // paused, so the arena behind keeps its last frame, rocks included
     Rectangle {
         id: pauseCard
         anchors.centerIn: parent
@@ -246,10 +236,8 @@ Rectangle {
     }
 
     // ---- win overlay ----
-    // Shown 2 s after the round is won: the glyph-grows-and-glows beat and the
-    // confetti get their moment on the frozen arena before the card covers it.
-    // The engine still ends the run at the touch (the clock stops there), so
-    // this is presentation only.
+    // Shown 2 s after the win, so the glyph beat and the confetti land on the
+    // frozen arena first. The engine already ended the run at the touch.
     property bool verdictOn: false
     Timer {
         id: verdictDelay
@@ -258,7 +246,6 @@ Rectangle {
     }
     Connections {
         target: board.engine
-        // any win: the orb (racing modes) or the tenth glyph (Glyph Hunt)
         function onRoundEnded(playerIdx, timeSec) { verdictDelay.restart() }
         function onRoundStarted() { verdictDelay.stop(); board.verdictOn = false }
     }
@@ -285,9 +272,9 @@ Rectangle {
             Text {
                 textFormat: Text.PlainText
                 anchors.horizontalCenter: parent.horizontalCenter
-                // Block-element stripe, not a flag emoji: the overlays share the
-                // board's monospace art font, where only text glyphs live — and
-                // ▀▄ is already the finish line's own pattern.
+                // block-element stripe, not a flag emoji: the overlays are set in
+                // the board's monospace art font, and ▀▄ is the finish line's
+                // own pattern
                 text: "▀▄▀▄  " + board.engine.winner + " wins"
                 color: board.themeGreen
                 font.family: "monospace"

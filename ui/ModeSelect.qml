@@ -6,7 +6,7 @@ import qs.Ui
 
 // Ojumpy mode selection overlay. Lists GameModes.js entries; ready modes are
 // pickable (click, 1..9, or the cursor: up/down moves it, Enter/A picks).
-// Emits picked(modeId); the panel applies it and returns to the game view.
+// Emits picked(modeId) when a mode is chosen; the panel applies it.
 
 Rectangle {
     id: modeSelect
@@ -19,9 +19,8 @@ Rectangle {
 
     readonly property var modeList: Modes.list()
 
-    // Highlight row. Moved by a click's hover, the keyboard (Panel's key
-    // handler), or a pad (Panel's tick); all three go through the functions
-    // below, so the picker itself never has to know which one asked.
+    // Highlight row, moved by hover, the keyboard (Panel's key handler) or a pad
+    // (Panel's tick), all three through the functions below
     property int cursorIndex: 0
 
     color: Util.alpha(Color.background, 0.96)
@@ -40,7 +39,7 @@ Rectangle {
         modeSelect.picked(m.id);
     }
 
-    // Land on the mode that is playing, so the cursor starts where the user is.
+    // land on the mode that is playing
     function syncCursor() {
         var list = modeSelect.modeList;
         for (var i = 0; i < list.length; ++i) {
@@ -49,8 +48,7 @@ Rectangle {
         modeSelect.cursorIndex = 0;
     }
 
-    // Step to the next *ready* mode, wrapping. Scaffolded entries are shown but
-    // skipped: a cursor that cannot be acted on is just a dead stop.
+    // step to the next *ready* mode, wrapping; scaffolded entries are skipped
     function moveCursor(delta) {
         var list = modeSelect.modeList;
         var n = list.length;
@@ -66,7 +64,7 @@ Rectangle {
         modeSelect.pick(modeSelect.modeList[modeSelect.cursorIndex]);
     }
 
-    // The cursor follows the mouse too, so hover and keys never disagree.
+    // re-synced on open, so hover and keys never disagree
     onVisibleChanged: if (visible) modeSelect.syncCursor()
 
     Column {
@@ -88,14 +86,14 @@ Rectangle {
             delegate: Button {
                 required property var modelData
                 required property int index
-                // the list shows mode names only: the number key that picks a
-                // mode is a shortcut, so it lives in the tooltip
+                // the number key that picks a mode is a shortcut, so it lives in
+                // the tooltip
                 width: parent.width
                 text: modelData.name
                       + (modelData.id === modeSelect.engine.modeId ? "   (current)" : "")
                       + (modelData.ready ? "" : "   ·   soon")
-                // host-rendered tooltip: mode names are ours but the sink is
-                // the shell's, so they are flattened and capped first
+                // host-rendered tooltip: the words are ours, the sink is the
+                // shell's, so it is flattened and capped first
                 tooltipText: Plain.plain(modelData.ready
                     ? "Pick " + modelData.name + " (key " + (index + 1) + ")"
                     : modelData.name + " is not ready yet")

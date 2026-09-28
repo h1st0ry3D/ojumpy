@@ -1,16 +1,15 @@
 import QtQuick
 
-// Landing ripple — the wave that starts where a glyph touches down and runs
-// outwards over the platform art under it: a disc easing out, with a brighter
-// ring riding its front, fading while it expands.
+// Landing ripple: a wave that starts where a glyph touches down and runs outwards
+// over the platform art under it, a disc easing out with a brighter ring riding
+// its front, fading while it expands.
 //
 // The platform is text art, so there is no surface to tint: the wave lights the
-// platform's *own* characters. Each cell carries an aligned overlay coloured
-// with the platform ink mixed towards a lifted version of that ink, by the wave
-// alpha at the cell centre — the cell the front is on flashes, washed cells
-// settle to a soft glow, and nothing is added to the platform. Ripples come from
-// a fixed pool of fixed cell grids, so a landing only changes bindings and never
-// creates or destroys items.
+// platform's *own* characters. Each cell carries an aligned overlay coloured with
+// the platform ink mixed towards a lifted version of that ink, by the wave alpha
+// at the cell centre. The cell the front is on flashes, washed cells settle to a
+// soft glow, and nothing is added to the platform. Ripples come from a fixed pool
+// of fixed cell grids, so a landing only changes bindings.
 Item {
     id: pool
 
@@ -41,11 +40,11 @@ Item {
     // The platform colour with a raised HSV value: that is what makes the wave
     // read as light *on* the platform instead of a second colour on top of it.
     property real inkLift: 0.45
-    // Front softness in character cells — the ring is ~2.5 of these wide, so
-    // about 1.5 characters of the art glow at any moment.
+    // Front softness in character cells. The ring is ~2.5 of these wide, so about
+    // 1.5 characters of the art glow at any moment.
     property real frontSoftness: 0.6
-    // Peak alpha behind the front / on the front ring — the crest is meant to
-    // reach the ripple ink, the wash behind it stays soft.
+    // Peak alpha behind the front / on the front ring: the crest is meant to reach
+    // the ripple ink, the wash behind it stays soft.
     property real discAlpha: 0.6
     property real ringAlpha: 0.8
     // Cells dimmer than this are not drawn at all.
@@ -55,13 +54,12 @@ Item {
         var v = ink.hsvValue;
         var col = Qt.hsva(ink.hsvHue, Math.max(0.0, ink.hsvSaturation * 0.85),
                           Math.min(1.0, v + pool.inkLift), 1.0);
-        // A colour already at full value cannot be lifted any further *as value*
-        // — and the start pad and the finish band are exactly that: they are
-        // painted in the theme's foreground, the inverse of the background. That
-        // is what made the wave invisible on those two platforms while it worked
-        // on every other one. Spend the leftover lift on mixing towards white
-        // instead, i.e. carry on brightening; for the other platforms the spill
-        // is zero and nothing changes.
+        // A colour already at full value cannot be lifted as value, and the start
+        // pad and the finish band are exactly that: they are painted in the
+        // theme's foreground, the inverse of the background, so a value-only lift
+        // left the wave invisible on those two platforms while it worked on every
+        // other one. Spend the leftover lift on mixing towards white instead; for
+        // the other platforms the spill is zero and nothing changes.
         var spill = Math.min(1.0, Math.max(0.0, (v + pool.inkLift) - 1.0) / pool.inkLift);
         if (spill > 0) {
             var t = spill * 0.75;
@@ -85,7 +83,7 @@ Item {
     // everything in pane pixels: paneX/artTopY = the art's left edge / line-box
     // top, impactX = where the glyph landed, rows = the platform art (one string
     // per line), px = glyph font size, cellAdvance = advance of one character, in
-    // font-size units (0.6 em — the monospace advance the engine sizes every
+    // font-size units (0.6 em, the monospace advance the engine sizes every
     // platform with), inkTop/rowH = painted top/height of one row inside the line
     // box, rowAdvance = line advance, ink = platform colour.
     property int cursor: 0

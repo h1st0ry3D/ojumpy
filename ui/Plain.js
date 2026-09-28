@@ -1,7 +1,7 @@
-// Flattening for text that the *shell* renders (tooltipText, PanelToolTip):
-// those widgets use AutoText, so markup in the string would be interpreted —
-// rich text loads <img src="...">, i.e. a request from the shell process.
-// Everything dynamic that goes into such a sink passes through plain() first.
+// Flattening for text that the *shell* renders (tooltipText, PanelToolTip).
+// Those widgets use AutoText, so markup in the string would be interpreted:
+// rich text loads <img src="...">, a request from the shell process. Everything
+// dynamic that goes into such a sink passes through plain() first.
 .pragma library
 
 var MAX_LEN = 96

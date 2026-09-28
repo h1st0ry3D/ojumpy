@@ -2,31 +2,27 @@
 """Ojumpy sound cues, synthesized (stdlib only).
 
 Each cue is a short linearly swept sine with a squared decay envelope, built
-sample by sample, so the plugin ships no audio editor project and no third-party
-asset — just this recipe and its output:
+sample by sample.
 
   step  320 -> 200 Hz, 0.06 s, 0.22   one footstep
   land  190 ->  80 Hz, 0.16 s, 0.60   landing thud
-  bump  130 ->  55 Hz, 0.18 s, 0.60   player-vs-player hit (deeper, thud-like)
+  bump  130 ->  55 Hz, 0.18 s, 0.60   player-vs-player hit
   orb   C6-E6-G6 bell arpeggio        touching the summit orb
   bing  G6 bell (single note)         Glyph Hunt: picked up your own colour
   jump  440 -> 880 Hz, 0.18 s, 0.50   leaving the ground
 
-`orb` is not a sweep: it is the collectible cue (a three-note bell
-a three-note bell arpeggio — 1046.5 / 1318.5 / 1568 Hz, each
-note 0.14 s with a 0.04 s gap, a sine plus its octave partial at 0.3, squared
-decay envelope — ported here so the two games share the reward sound.
+`orb` and `bing` are not sweeps but bell arpeggios of the same recipe, three
+notes and one.
 
-Every cue is written once per entry of PITCH_SCALES and the game picks a variant
-at random per play: a fixed pitch repeating every 0.3 s is grating.
+Every cue is written once per entry of PITCH_SCALES (five variants) and the game
+picks one at random per play.
 
-The rendered WAVs are *committed* (`sfx/` next to this script), so a plain clone
-gives a complete plugin — this is only the recipe:
+The rendered WAVs are committed in `sfx/` next to this script:
 
   python3 -B ojumpy-sfx.py            # rewrites ./sfx
 
-Do not run it at plugin startup: writing into the plugin folder touches the tree
-the shell hot-reloads. Runtime state belongs in `~/.local/state/ojumpy/`.
+Do not run this at plugin startup. Runtime state belongs in
+`~/.local/state/ojumpy/`.
 """
 import argparse
 import math
@@ -40,28 +36,24 @@ CUES = {
     "step": (320.0, 200.0, 0.06, 0.22),
     "land": (190.0, 80.0, 0.16, 0.60),
     "bump": (130.0, 55.0, 0.18, 0.60),
-    "jump": (440.0, 880.0, 0.18, 0.50),   # a rising 440 -> 880 blip
+    "jump": (440.0, 880.0, 0.18, 0.50),
 }
 
-# Arpeggios: name -> (note frequencies, note duration, gap, volume). Ported from
-# The collectible cue: three bell-ish notes, each with an octave partial.
+# Arpeggios: name -> (note frequencies, note duration, gap, volume)
 ARPEGGIOS = {
     "orb": ([1046.5, 1318.5, 1568.0], 0.14, 0.04, 0.5),
-    # Glyph Hunt: one bright bell for a correct grab (a single note of the
-    # same recipe, so it reads as the reward family the orb cue belongs to)
+    # Glyph Hunt: one correct grab, a single note of the same recipe
     "bing": ([1568.0], 0.10, 0.0, 0.5),
 }
 
 # Scaling the sweep frequencies shifts pitch without changing the cue's length;
-# resampling would scale pitch and duration together, and a 10 % length
-# difference on a 60 ms blip is not worth the extra machinery.
+# resampling would scale pitch and duration together.
 PITCH_SCALES = (0.90, 0.95, 1.00, 1.05, 1.10)
 
 
 def make_tone(freq_start, freq_end, duration, volume, pitch_scale=1.0):
     """16-bit mono PCM samples: linear sweep + squared decay envelope. The phase
-    integrates the instantaneous frequency, so the sweep is clean instead of
-    stepping once per sample."""
+    integrates the instantaneous frequency."""
     f0 = freq_start * pitch_scale
     f1 = freq_end * pitch_scale
     samples = int(MIX_RATE * duration)

@@ -1,30 +1,22 @@
 import QtQuick
 
-// Ink geometry of the board's text art.
+// Ink geometry of the board's text art: bounds are measured once at pixelSize 100
+// and scaled linearly, so the painted top (and a player glyph's painted bottom)
+// lands on the collision line for any character.
 //
-// Every character paints at a different height inside its line box ("////" is
-// tall, "----" is a thin mid line, "____" hugs the baseline). The collision top
-// must match the *painted* top so a player stands on the art, and the player
-// glyph must rest its painted bottom on that same line — for any character.
+// Art must stay a plain 0.6 em grid (the engine sizes collision boxes from it), so
+// contextual alternates are off here and on the art: JetBrains Mono would ligate
+// "<<<" / ">>>" into glyphs off the grid. What is measured is what is painted.
 //
-// Bounds are measured once at pixelSize 100 and scaled by font size: linear, and
-// no probe mutation during delegate bindings.
-//
-// Art must stay a plain 0.6 em character grid (the engine sizes collision boxes
-// from it), so the font's contextual alternates are off here *and* on the art —
-// JetBrains Mono would otherwise ligate "<<<"/">>>" runs into tightened glyphs
-// that no longer sit on the grid. What is measured is what is painted.
-//
-// Root is a zero-sized Item because QtObject has no default property for the
-// probe children.
+// QtObject has no default property for the probes, so the root is a zero-sized
+// Item.
 Item {
     id: metrics
     width: 0
     height: 0
 
     // Art to measure: every platform pattern (the finish band included) and every
-    // player glyph. Multi-row art is measured per row as well, because the ripple
-    // overlays one row at a time.
+    // player glyph.
     property var platformGlyphs: []
     property var playerGlyphs: []
     property var hazardGlyphs: []
@@ -59,14 +51,12 @@ Item {
     property var playerInkBottomRatio: ({})    // player glyph -> ink bottom / font px
     property var playerInkHeightRatio: ({})    // player glyph -> painted height / font px
     // hazard glyphs (Asterisk Attack's rocks): the mode's size classes are ink
-    // *widths*, so the horizontal numbers are measured too — the view then
-    // places the ink box exactly where the engine simulates it
+    // *widths*, so the horizontal ratios are measured as well
     property var hazardInkLeftRatio: ({})      // glyph -> pen origin -> ink left / font px
     property var hazardInkWidthRatio: ({})     // glyph -> ink width / font px
     property var hazardInkCenterRatio: ({})    // glyph -> box top -> ink v-centre / font px
-    // the finish orb: sized by its ink *height* (the engine fixes the painted
-    // radius, so the font follows from the circle's measured height), and
-    // centred through the same ink box the collision uses
+    // the finish orb: the engine fixes the painted radius, so the font size follows
+    // from the measured ink height, and left/width/centre use that box
     property var orbInkLeftRatio: ({})         // glyph -> pen origin -> ink left / font px
     property var orbInkWidthRatio: ({})        // glyph -> ink width / font px
     property var orbInkHeightRatio: ({})       // glyph -> ink height / font px
@@ -92,9 +82,8 @@ Item {
         return (metrics.playerInkHeightRatio[glyph] || 0.75) * pixelSize;
     }
 
-    // Hazard glyph ink box: left edge (from the text's pen origin), width, and
-    // the vertical centre (from the box top). A rock is drawn at the size the
-    // engine collides with by sizing the font from the width.
+    // Hazard ink box: left edge from the text's pen origin, ink width, vertical
+    // centre from the box top. The font is sized from the measured ink width.
     function hazardInkLeftPx(glyph, pixelSize) {
         return (metrics.hazardInkLeftRatio[glyph] || 0) * pixelSize;
     }
@@ -105,9 +94,6 @@ Item {
         return (metrics.hazardInkCenterRatio[glyph] || 0.75) * pixelSize;
     }
 
-    // Finish orb ink box, same shape as the hazard helpers. The painted
-    // diameter is 2 * engine.orbR, so the font size comes from the height ratio
-    // and everything else follows from the measured box.
     function orbInkLeftPx(glyph, pixelSize) {
         return (metrics.orbInkLeftRatio[glyph] || 0) * pixelSize;
     }
@@ -128,8 +114,8 @@ Item {
         var heights = {};
         var arts = (metrics.platformGlyphs || []).slice();
         for (var i = 0; i < arts.length; i++) {
-            // whole art (platform placement) and, for multi-row art, every row
-            // on its own — the landing ripple overlays one row at a time
+            // whole art, and each row of multi-row art on its own: the landing
+            // ripple overlays one row at a time
             var keys = [arts[i]];
             var rows = String(arts[i]).split("\n");
             if (rows.length > 1) keys = keys.concat(rows);
@@ -143,15 +129,15 @@ Item {
         metrics.platformInkTopRatio = tops;
         metrics.platformInkHeightRatio = heights;
 
-        // art line advance: the second line of a two-line probe sits this far
-        // below the first (same font as the art, which draws at lineHeight 1.0)
+        // art line advance: the second line of a two-line probe sits this far below
+        // the first; the art draws at lineHeight 1.0
         lineProbe.text = "0";
         var oneLine = lineProbe.height;
         lineProbe.text = "0\n0";
         metrics.rowAdvanceRatio = Math.max(0.8, (lineProbe.height - oneLine) / 100);
 
-        // player glyphs: the glider (Ô) carries its hat above the O, so its
-        // painted bottom is unchanged — measured anyway, per glyph
+        // player glyphs: the glider (Ô) carries its hat above the O, so its painted
+        // bottom is unchanged; measured per glyph anyway
         var bottoms = {};
         var pHeights = {};
         var players = metrics.playerGlyphs || [];
@@ -164,8 +150,6 @@ Item {
         metrics.playerInkBottomRatio = bottoms;
         metrics.playerInkHeightRatio = pHeights;
 
-        // hazard glyphs: the asterisk sizes are ink widths, so measure the
-        // horizontal extents (and the ink centre) as well
         var haz = metrics.hazardGlyphs || [];
         var hLeft = {}, hWidth = {}, hCenter = {};
         for (var h = 0; h < haz.length; h++) {
@@ -179,8 +163,6 @@ Item {
         metrics.hazardInkWidthRatio = hWidth;
         metrics.hazardInkCenterRatio = hCenter;
 
-        // finish orb glyph: full ink box, height included (the orb's font size
-        // is derived from the painted diameter)
         var orbs = metrics.orbGlyphs || [];
         var oLeft = {}, oWidth = {}, oHeight = {}, oCenter = {};
         for (var o = 0; o < orbs.length; o++) {

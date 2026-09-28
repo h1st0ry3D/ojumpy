@@ -5,9 +5,9 @@ import Quickshell.Io
 //
 // `Color.*` only exposes background/foreground/accent/muted/urgent, so the extra
 // roles the course needs come from the theme's own colors.toml. The file is not
-// ours, and a pathname read could follow a symlink or block on a FIFO: the
-// FileView is a watcher only (it never hands over bytes) and the read itself is
-// a bounded descriptor read in ojumpy-state.py.
+// ours, and a pathname read could follow a symlink or block on a FIFO, so the
+// FileView only watches (it never hands over bytes) and ojumpy-state.py does
+// the bounded descriptor read.
 //
 // Root is a zero-sized Item because QtObject has no default property for the
 // FileView/Process children.
@@ -24,7 +24,6 @@ Item {
     property var palette: ({})            // role -> "#rrggbb"
     property string green: ""             // green, else bright_green, else ""
 
-    // A palette role, or the fallback when the theme does not define it.
     function color(key, fallback) {
         var v = store.palette[key];
         return (typeof v === "string" && v.charAt(0) === "#") ? v : fallback;
@@ -43,9 +42,8 @@ Item {
     property string buf: ""
     property bool overflow: false
 
-    // Read the palette now. Also called when the panel opens, so a theme switch
-    // that happened while the panel was closed is picked up even if the watcher
-    // missed it.
+    // Read the palette now. Also called when the panel opens, so a switch made
+    // while it was closed is picked up even if the watcher missed it.
     function reload() {
         themeRead.running = false;
         themeRead.running = true;
