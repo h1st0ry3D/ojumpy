@@ -387,6 +387,9 @@ Item {
     signal bumped()
     // a hazard killed a player: the panel plays the hit cue, the ghost ring holds the marker
     signal crushed(int playerIdx)
+    // fell off the bottom of the tower, in any mode: same cue, same marker, back to
+    // platform 0. Its own signal, so a fall is never reported as a hazard.
+    signal fell(int playerIdx)
     // Picked up the platform-50 power-up / spent it absorbing a rock
     signal powered(int playerIdx)
     signal shielded(int playerIdx)
@@ -531,7 +534,7 @@ Item {
         var mine = hazTeam[slot] === idx;
         if (!mine) {
             // The other player's colour is a body hit, not a bad catch: the same
-            // thud as a shove (onCrushed -> "bump"), and a death on the spot.
+            // thud as a shove (onCrushed -> "hit"), and a death on the spot.
             collected(idx, false);
             _crush(idx);
             return;
@@ -1035,6 +1038,7 @@ Item {
             jumps = 0;
             if (isP1) { falls1++; p1Plat = 0; } else { falls2++; p2Plat = 0; }
             if (isP1) p1done = false; else p2done = false;
+            fell(idx);
             _rewardDeath(idx);
             var m2 = Modes.get(modeId);
             if (m2.onFall && m2.onFall(engine, idx)) {

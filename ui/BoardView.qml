@@ -133,6 +133,11 @@ Item {
     // linearly. Only the colour changes: the glyph keeps its weight.
     readonly property real hitGlowSeconds: 0.35
     readonly property real hitGlowFill: 0.55    // mix towards white at full pulse
+    // A correct Glyph Hunt catch flashes the other way: a shorter, brighter
+    // pulse, and the glyph goes bold at the peak. Bigger than a bump's fill, so
+    // "I scored" never reads as "I got shoved".
+    readonly property real collectGlowSeconds: 0.3
+    readonly property real collectGlowFill: 0.95
     function glowInk(base, pulse, amount) {
         if (pulse <= 0) return base;
         var t = amount * pulse;
@@ -506,6 +511,25 @@ Item {
                 target: view.engine
                 function onBumped() { glowAnim.restart() }
             }
+            // the Glyph Hunt catch: a quicker, brighter flash of this player's own
+            // colour, the answer to the bing. Wrong colour never gets here, it
+            // kills instead (and _crush moves the glyph to the start pad).
+            property real collectGlow: 0
+            NumberAnimation {
+                id: collectAnim
+                target: playerItem
+                property: "collectGlow"
+                from: 1.0
+                to: 0.0
+                duration: view.collectGlowSeconds * 1000
+            }
+            Connections {
+                target: view.engine
+                function onCollected(playerIdx, correct) {
+                    if (playerIdx !== playerItem.index || !correct) return;
+                    collectAnim.restart();
+                }
+            }
             readonly property color baseColor: playerItem.isP1 ? view.p1Color : view.p2Color
             readonly property bool shielded: isP1 ? view.engine.p1Bold : view.engine.p2Bold
             // the player who touched the orb draws at the orb's font size; this
@@ -513,10 +537,15 @@ Item {
             readonly property bool orbHero: view.engine.orbWinner === index
             readonly property real fontPx: orbHero ? view.orbFontPx : view.playerFontPx
             // charged: hold the glyph at a full flash, so a bump is never dimmer
-            // than the charge; the orb hero rides the engine's brightness pulse
-            readonly property color glowFill: view.glowInk(playerItem.baseColor,
-                Math.max(playerItem.hitGlow, playerItem.shielded ? 1.0 : 0.0,
-                         playerItem.orbHero ? view.engine.orbBrightPulse : 0.0), view.hitGlowFill)
+            // than the charge; the orb hero rides the engine's brightness pulse.
+            // Each source carries its own fill, and the strongest active one wins.
+            readonly property real glowMix: Math.max(
+                view.hitGlowFill * playerItem.hitGlow,
+                view.collectGlowFill * playerItem.collectGlow,
+                playerItem.shielded ? view.hitGlowFill : 0.0,
+                playerItem.orbHero ? view.hitGlowFill * view.engine.orbBrightPulse : 0.0)
+            readonly property color glowFill: view.glowInk(playerItem.baseColor, 1.0,
+                playerItem.glowMix)
 
             // walking wobble: every footstep dips the glyph and springs it back, on
             // the engine's 0.3 s cadence. The glyph is *scaled*, never re-laid out
@@ -561,8 +590,10 @@ Item {
                 visible: !parent.inAbyss
                 font.family: "monospace"
                 font.pixelSize: playerItem.fontPx
-                // weight carries the charge: bold while shielded
-                font.bold: playerItem.shielded
+                // weight carries the charge and the catch: bold while shielded,
+                // and for the first half of a collect flash, so the weight comes
+                // back as the colour fades instead of popping at the end
+                font.bold: playerItem.shielded || playerItem.collectGlow > 0.5
                 transform: [
                     // walk wobble: uniform shrink about the *painted feet* (the
                     // delegate's y already puts the ink bottom on the ground), not

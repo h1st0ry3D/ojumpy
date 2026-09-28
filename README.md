@@ -286,8 +286,10 @@ not ours: the shell gives every plugin panel an `open`/`close`/`toggle` of its o
 - **Sound playback** hands one of those WAVs to the first of `/usr/bin/pw-play`,
   `/usr/bin/paplay`, `/usr/bin/aplay` that exists — absolute paths, one process per
   cue, four recycled voices. `step` while walking, `land` on landing, `jump` on
-  every jump, `bump` on shoves (and on rock hits), `bing` for a correct Glyph Hunt
-  catch, `orb` when the summit orb is touched.
+  every jump, `bump` on shoves (and on a shield absorbing a rock), `bing` for a
+  correct Glyph Hunt catch, `orb` when the summit orb is touched, and `hit` on
+  every death: a rock in Asterisk Attack, the other player's colour in Glyph
+  Hunt, or a fall off the bottom of the tower in any mode.
 - Every text item is pinned with `textFormat: Text.PlainText`, and the few strings
   that go into shell-rendered tooltips are flattened and capped first (`ui/Plain.js`).
 

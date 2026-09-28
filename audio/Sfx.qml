@@ -73,15 +73,18 @@ Item {
         function onStepped(playerIdx) { sfx.play("step") }
         function onLanded(playerIdx) { sfx.play("land") }
         function onBumped() { sfx.play("bump") }
-        // a hazard death (Asterisk Attack) reuses the bump thud
-        function onCrushed(playerIdx) { sfx.play("bump") }
+        // a hazard kill: a rock in Asterisk Attack, the other player's colour in
+        // Glyph Hunt. Both die through the same path (_crush), one cue.
+        function onCrushed(playerIdx) { sfx.play("hit") }
+        // fell off the bottom of the tower, in any mode: the same hit
+        function onFell(playerIdx) { sfx.play("hit") }
         // catching the platform-50 power-up / spending it on a rock
         function onPowered(playerIdx) { sfx.play("land") }
         function onShielded(playerIdx) { sfx.play("bump") }
         // touched the summit orb: the collectible arpeggio
         function onOrbCollected(playerIdx) { sfx.play("orb") }
-        // Glyph Hunt: a wrong-colour glyph is a death, so it plays through
-        // onCrushed above; only a correct catch rings here.
+        // Glyph Hunt: a wrong-colour glyph plays through onCrushed above, so
+        // only a correct catch rings here.
         function onCollected(playerIdx, correct) { if (correct) sfx.play("bing") }
         // leaving the ground, ground jump and air jump alike
         function onJumped(playerIdx) { sfx.play("jump") }
